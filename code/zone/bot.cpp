@@ -5129,24 +5129,21 @@ void Bot::DoRiposte(Mob* defender) {
 	}
 
 	{
-		bool skill_atk_fired = false;
-
-		const int32 slot1_chance = defender->GetAABonuses().GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_SKILL_ATK_CHANCE];
-		if (slot1_chance && (slot1_chance >= zone->random.Int(0, 100))) {
-			if (defender->GetClass() == Class::Monk)
-				defender->MonkSpecialAttack(this, defender->GetAABonuses().GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_SKILL]);
-			else if (defender->IsBot())
-				defender->CastToClient()->DoClassAttacks(this, defender->GetAABonuses().GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_SKILL], true);
-			skill_atk_fired = true;
-		}
-
-		if (!skill_atk_fired) {
-			const int32 slot2_chance = defender->GetAABonuses().GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_SKILL_ATK_CHANCE2];
-			if (slot2_chance && (slot2_chance >= zone->random.Int(0, 100))) {
+		static const EQ::skills::SkillType riposte_skills[] = {
+			EQ::skills::SkillBackstab,
+			EQ::skills::SkillBash,
+			EQ::skills::SkillFlyingKick,
+			EQ::skills::SkillKick,
+			EQ::skills::SkillFrenzy,
+		};
+		for (const auto skill : riposte_skills) {
+			const int32 chance = defender->GetAABonuses().GiveDoubleRiposteSkill[static_cast<int>(skill)];
+			if (chance && (chance >= zone->random.Int(0, 100))) {
 				if (defender->GetClass() == Class::Monk)
-					defender->MonkSpecialAttack(this, defender->GetAABonuses().GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_SKILL2]);
+					defender->MonkSpecialAttack(this, skill);
 				else if (defender->IsBot())
-					defender->CastToClient()->DoClassAttacks(this, defender->GetAABonuses().GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_SKILL2], true);
+					defender->CastToClient()->DoClassAttacks(this, skill, true);
+				break;
 			}
 		}
 	}
