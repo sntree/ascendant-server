@@ -5702,24 +5702,35 @@ void Mob::DoRiposte(Mob *defender)
 	}
 
 	// Double Riposte effect — class-specific special attack on riposte (Return Kick, Knight's Return Strike, etc.).
-	// At most one fires per riposte: skills are tried in list order; first successful roll wins.
-	// To add a new riposte-skill AA: register its skill ID here.
+	// At most one fires per riposte. Native class skill rolls first; cross-class skills follow.
+	// Roll order is class-dependent so the native ability always has priority.
 	{
-		static const EQ::skills::SkillType riposte_skills[] = {
-			EQ::skills::SkillBackstab,
-			EQ::skills::SkillBash,
-			EQ::skills::SkillFlyingKick,
-			EQ::skills::SkillKick,
-			EQ::skills::SkillFrenzy,
-		};
-		for (const auto skill : riposte_skills) {
-			const int32 chance = defender->aabonuses.GiveDoubleRiposteSkill[static_cast<int>(skill)];
+		struct RiposteSkillOrder { const EQ::skills::SkillType* list; int count; };
+
+		static const EQ::skills::SkillType order_kick_bash[]              = { EQ::skills::SkillKick,       EQ::skills::SkillBash };
+		static const EQ::skills::SkillType order_bash_kick[]              = { EQ::skills::SkillBash,       EQ::skills::SkillKick };
+		static const EQ::skills::SkillType order_flyingkick_kick_bash[]   = { EQ::skills::SkillFlyingKick, EQ::skills::SkillKick, EQ::skills::SkillBash };
+		static const EQ::skills::SkillType order_backstab_kick_bash[]     = { EQ::skills::SkillBackstab,   EQ::skills::SkillKick, EQ::skills::SkillBash };
+		static const EQ::skills::SkillType order_frenzy_kick_bash[]       = { EQ::skills::SkillFrenzy,     EQ::skills::SkillKick, EQ::skills::SkillBash };
+
+		RiposteSkillOrder order;
+		switch (defender->GetClass()) {
+			case Class::Paladin:
+			case Class::ShadowKnight: order = { order_bash_kick,            2 }; break;
+			case Class::Monk:         order = { order_flyingkick_kick_bash, 3 }; break;
+			case Class::Rogue:        order = { order_backstab_kick_bash,   3 }; break;
+			case Class::Berserker:    order = { order_frenzy_kick_bash,     3 }; break;
+			default:                  order = { order_kick_bash,            2 }; break;
+		}
+
+		for (int i = 0; i < order.count; ++i) {
+			const int32 chance = defender->aabonuses.GiveDoubleRiposteSkill[static_cast<int>(order.list[i])];
 			if (chance && zone->random.Roll(chance)) {
-				LogCombat("Preforming a return SPECIAL ATTACK skill={} ([{}] percent chance)", static_cast<int>(skill), chance);
+				LogCombat("Preforming a return SPECIAL ATTACK skill={} ([{}] percent chance)", static_cast<int>(order.list[i]), chance);
 				if (defender->GetClass() == Class::Monk)
-					defender->MonkSpecialAttack(this, skill);
+					defender->MonkSpecialAttack(this, order.list[i]);
 				else if (defender->IsClient())
-					defender->CastToClient()->DoClassAttacks(this, skill, true);
+					defender->CastToClient()->DoClassAttacks(this, order.list[i], true);
 				break;
 			}
 		}

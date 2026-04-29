@@ -5129,20 +5129,31 @@ void Bot::DoRiposte(Mob* defender) {
 	}
 
 	{
-		static const EQ::skills::SkillType riposte_skills[] = {
-			EQ::skills::SkillBackstab,
-			EQ::skills::SkillBash,
-			EQ::skills::SkillFlyingKick,
-			EQ::skills::SkillKick,
-			EQ::skills::SkillFrenzy,
-		};
-		for (const auto skill : riposte_skills) {
-			const int32 chance = defender->GetAABonuses().GiveDoubleRiposteSkill[static_cast<int>(skill)];
+		struct RiposteSkillOrder { const EQ::skills::SkillType* list; int count; };
+
+		static const EQ::skills::SkillType order_kick_bash[]              = { EQ::skills::SkillKick,       EQ::skills::SkillBash };
+		static const EQ::skills::SkillType order_bash_kick[]              = { EQ::skills::SkillBash,       EQ::skills::SkillKick };
+		static const EQ::skills::SkillType order_flyingkick_kick_bash[]   = { EQ::skills::SkillFlyingKick, EQ::skills::SkillKick, EQ::skills::SkillBash };
+		static const EQ::skills::SkillType order_backstab_kick_bash[]     = { EQ::skills::SkillBackstab,   EQ::skills::SkillKick, EQ::skills::SkillBash };
+		static const EQ::skills::SkillType order_frenzy_kick_bash[]       = { EQ::skills::SkillFrenzy,     EQ::skills::SkillKick, EQ::skills::SkillBash };
+
+		RiposteSkillOrder order;
+		switch (defender->GetClass()) {
+			case Class::Paladin:
+			case Class::ShadowKnight: order = { order_bash_kick,            2 }; break;
+			case Class::Monk:         order = { order_flyingkick_kick_bash, 3 }; break;
+			case Class::Rogue:        order = { order_backstab_kick_bash,   3 }; break;
+			case Class::Berserker:    order = { order_frenzy_kick_bash,     3 }; break;
+			default:                  order = { order_kick_bash,            2 }; break;
+		}
+
+		for (int i = 0; i < order.count; ++i) {
+			const int32 chance = defender->GetAABonuses().GiveDoubleRiposteSkill[static_cast<int>(order.list[i])];
 			if (chance && (chance >= zone->random.Int(0, 100))) {
 				if (defender->GetClass() == Class::Monk)
-					defender->MonkSpecialAttack(this, skill);
+					defender->MonkSpecialAttack(this, order.list[i]);
 				else if (defender->IsBot())
-					defender->CastToClient()->DoClassAttacks(this, skill, true);
+					defender->CastToClient()->DoClassAttacks(this, order.list[i], true);
 				break;
 			}
 		}
