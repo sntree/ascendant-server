@@ -5701,18 +5701,33 @@ void Mob::DoRiposte(Mob *defender)
 			return;
 	}
 
-	// Double Riposte effect, allows for a chance to do RIPOSTE with a skill specific special attack (ie Return Kick).
-	// Coded narrowly: Limit to one per client. Limit AA only. [1 = Skill Attack Chance, 2 = Skill]
+	// Double Riposte effect — class-specific special attack on riposte (Return Kick, Knight's Return Strike, etc.).
+	// At most one fires per riposte: slot 1 is tried first; slot 2 only fires if slot 1 did not.
+	// Slot 2 holds a different skill (e.g. bash vs kick) from cross-class AA stacking.
+	// [1=SkillAtkChance, 2=Skill, 3=SkillAtkChance2, 4=Skill2]
+	{
+		bool skill_atk_fired = false;
 
-	DoubleRipChance = defender->aabonuses.GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_SKILL_ATK_CHANCE];
+		const int32 slot1_chance = defender->aabonuses.GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_SKILL_ATK_CHANCE];
+		if (slot1_chance && zone->random.Roll(slot1_chance)) {
+			LogCombat("Preforming a return SPECIAL ATTACK slot 1 ([{}] percent chance)", slot1_chance);
+			if (defender->GetClass() == Class::Monk)
+				defender->MonkSpecialAttack(this, defender->aabonuses.GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_SKILL]);
+			else if (defender->IsClient())
+				defender->CastToClient()->DoClassAttacks(this, defender->aabonuses.GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_SKILL], true);
+			skill_atk_fired = true;
+		}
 
-	if (DoubleRipChance && zone->random.Roll(DoubleRipChance)) {
-		LogCombat("Preforming a return SPECIAL ATTACK ([{}] percent chance)", DoubleRipChance);
-
-		if (defender->GetClass() == Class::Monk)
-			defender->MonkSpecialAttack(this, defender->aabonuses.GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_SKILL]);
-		else if (defender->IsClient()) // so yeah, even if you don't have the skill you can still do the attack :P (and we don't crash anymore)
-			defender->CastToClient()->DoClassAttacks(this, defender->aabonuses.GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_SKILL], true);
+		if (!skill_atk_fired) {
+			const int32 slot2_chance = defender->aabonuses.GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_SKILL_ATK_CHANCE2];
+			if (slot2_chance && zone->random.Roll(slot2_chance)) {
+				LogCombat("Preforming a return SPECIAL ATTACK slot 2 ([{}] percent chance)", slot2_chance);
+				if (defender->GetClass() == Class::Monk)
+					defender->MonkSpecialAttack(this, defender->aabonuses.GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_SKILL2]);
+				else if (defender->IsClient())
+					defender->CastToClient()->DoClassAttacks(this, defender->aabonuses.GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_SKILL2], true);
+			}
+		}
 	}
 }
 

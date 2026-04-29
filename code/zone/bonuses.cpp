@@ -1235,15 +1235,28 @@ void Mob::ApplyAABonuses(const AA::Rank &rank, StatBonuses *newbon)
 		}
 
 		case SpellEffect::GiveDoubleRiposte: {
-			// 0=Regular Riposte 1=Skill Attack Riposte 2=Skill
+			// 0=Regular Riposte 1=Skill Attack Riposte 2=Skill 3=Skill Attack Riposte2 4=Skill2
 			if (limit_value == 0) {
 				if (newbon->GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_CHANCE] < base_value)
 					newbon->GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_CHANCE] = base_value;
 			}
-			// Only for special attacks.
-			else if (limit_value > 0 && (newbon->GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_SKILL_ATK_CHANCE] < base_value)) {
-				newbon->GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_SKILL_ATK_CHANCE] = base_value;
-				newbon->GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_SKILL]            = limit_value;
+			else if (limit_value > 0) {
+				// Slot 1: use if empty or same skill with a higher chance.
+				if (newbon->GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_SKILL] == 0 ||
+				    newbon->GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_SKILL] == limit_value) {
+					if (newbon->GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_SKILL_ATK_CHANCE] < base_value) {
+						newbon->GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_SKILL_ATK_CHANCE] = base_value;
+						newbon->GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_SKILL]            = limit_value;
+					}
+				}
+				// Slot 2: a different skill is in slot 1 — store it here so both can roll.
+				else if (newbon->GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_SKILL2] == 0 ||
+				         newbon->GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_SKILL2] == limit_value) {
+					if (newbon->GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_SKILL_ATK_CHANCE2] < base_value) {
+						newbon->GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_SKILL_ATK_CHANCE2] = base_value;
+						newbon->GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_SKILL2]            = limit_value;
+					}
+				}
 			}
 
 			break;
