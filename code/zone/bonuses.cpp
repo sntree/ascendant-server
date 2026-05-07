@@ -1235,15 +1235,15 @@ void Mob::ApplyAABonuses(const AA::Rank &rank, StatBonuses *newbon)
 		}
 
 		case SpellEffect::GiveDoubleRiposte: {
-			// 0=Regular Riposte 1=Skill Attack Riposte 2=Skill
 			if (limit_value == 0) {
+				// Regular double riposte chance (Double Riposte / Flash of Steel AAs).
 				if (newbon->GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_CHANCE] < base_value)
 					newbon->GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_CHANCE] = base_value;
 			}
-			// Only for special attacks.
-			else if (limit_value > 0 && (newbon->GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_SKILL_ATK_CHANCE] < base_value)) {
-				newbon->GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_SKILL_ATK_CHANCE] = base_value;
-				newbon->GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_SKILL]            = limit_value;
+			else if (limit_value > 0 && limit_value <= EQ::skills::HIGHEST_SKILL) {
+				// Skill-specific riposte attack — indexed by skill ID, highest chance wins.
+				if (newbon->GiveDoubleRiposteSkill[limit_value] < base_value)
+					newbon->GiveDoubleRiposteSkill[limit_value] = base_value;
 			}
 
 			break;

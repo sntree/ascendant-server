@@ -535,7 +535,8 @@ struct StatBonuses {
 	int32	PetAvoidance;						// Pet avoidance chance.
 	int32	CombatStability;					// Melee damage mitigation.
 	int32	DoubleRiposte;						// Chance to double riposte
-	int32	GiveDoubleRiposte[3];				// 0=Regular Chance, 1=Skill Attack Chance, 2=Skill
+	int32	GiveDoubleRiposte[3];				// 0=Regular Chance (indices 1-2 unused, kept for script compat)
+	int32	GiveDoubleRiposteSkill[EQ::skills::HIGHEST_SKILL + 1];	// index=skill ID, value=chance % for riposte skill attacks
 	uint32	RaiseSkillCap[EQ::skills::HIGHEST_SKILL + 1];		// Raise a specific skill cap (base1= value, base2=skill)
 	int32	Ambidexterity;						// Increase chance to duel wield by adding bonus 'skill'.
 	int32	PetMaxHP;							// Increase the max hp of your pet.
@@ -630,8 +631,6 @@ namespace SBIndex {
 	constexpr uint16 SLAYUNDEAD_DMG_MOD                     = 0; // SPA 219
 	constexpr uint16 SLAYUNDEAD_RATE_MOD                    = 1; // SPA 219
 	constexpr uint16 DOUBLE_RIPOSTE_CHANCE                  = 0; // SPA 223
-	constexpr uint16 DOUBLE_RIPOSTE_SKILL_ATK_CHANCE        = 1; // SPA 223
-	constexpr uint16 DOUBLE_RIPOSTE_SKILL                   = 2; // SPA 223
 	constexpr uint16 FINISHING_EFFECT_PROC_CHANCE           = 0; // SPA 278, 439, 217
 	constexpr uint16 FINISHING_EFFECT_DMG                   = 1; // SPA 278, 439, 217
 	constexpr uint16 FINISHING_EFFECT_LEVEL_MAX             = 0; // SPA 440, 345, 346
