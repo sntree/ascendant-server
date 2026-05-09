@@ -1,7 +1,8 @@
 
 sub EVENT_SPAWN {
-	#check for our event global and see if we should even be up
-	if(defined $qglobals{cursed_dead}) {
+	#check for our event data bucket and see if we should even be up
+	my $inst = $instanceid || 0;
+	if(quest::get_data("ssra_cursed_$inst") ne "") {
 		quest::depop_withtimer();
 	}
 }

@@ -17,6 +17,17 @@ function event_timer(e)
 	end
 end
 
+function event_killed_merit(e)
+	local account_id = e.other:AccountID()
+	local char_name = e.other:GetCleanName()
+	eq.set_data("luclin_thallvaxakra_" .. account_id, char_name)
+	local first_key = "first_kill_thallvaxakra"
+	if eq.get_data(first_key) == "" and not e.other:GetGM() then
+		eq.set_data(first_key, char_name)
+		eq.world_emote(15, "SERVER FIRST! " .. char_name .. " and their group have slain Thall Va Xakra for the first time on this server!")
+	end
+end
+
 function help_tvx(e)
 	for _, guard in pairs(spawnpt_list) do
 		local guard_mob = eq.get_entity_list():GetNPCBySpawnID(guard);

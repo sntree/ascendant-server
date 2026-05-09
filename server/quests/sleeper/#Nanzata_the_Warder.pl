@@ -9,7 +9,7 @@ if ($killer_mob && $killer_mob->IsClient()) {
   my $char_name = $killer_client->GetCleanName();
   quest::set_data("velious_sleeper_" . $account_id, $char_name);
   my $first_key = "first_kill_sleeper_wake";
-  unless (quest::get_data($first_key)) {
+  unless (quest::get_data($first_key) || $client->GetGM()) {
     quest::set_data($first_key, $char_name);
     quest::we(15, "SERVER FIRST! " . $char_name . " and their raid have awakened The Sleeper for the first time on this server!");
   }

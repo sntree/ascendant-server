@@ -10,17 +10,6 @@ if ($text=~/Hail/i){
 }
 
 sub EVENT_ITEM {
-  if(plugin::check_handin(\%itemcount,59510 => 1)) {
-    quest::summonitem(21820); # Item: Bag of Platinum Pieces
-  }
-  elsif(plugin::check_handin(\%itemcount,59511 => 1)) {
-    quest::summonitem(21821); # Item: Heavy Bag of Platinum
-  }
-  elsif(plugin::check_handin(\%itemcount,59512 => 1)) {
-    quest::summonitem(21822); # Item: Big Bag of Platinum
-  }
-  elsif(plugin::check_handin(\%itemcount,59513 => 1)) {
-    quest::summonitem(21823); # Item: Huge Bag of Platinum
-  }
+  quest::say("Sorry, I'm not buying drogmors right now.");
   plugin::return_items(\%itemcount);
 }

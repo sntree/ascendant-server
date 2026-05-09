@@ -15,6 +15,7 @@ sub EVENT_ENTER {
 }
 
 sub EVENT_TIMER {
+  return unless $timer eq "start_cycle";
   $counter += 1;
   if ($counter <= 3) {
     quest::spawn2(164118,0,0,1780,227,-63.1,0); #rock burrower

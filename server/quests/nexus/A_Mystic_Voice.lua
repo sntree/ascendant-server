@@ -10,7 +10,20 @@ function event_spawn(e)
 	ThreadManager:Create("Velious", velious_cycle, e);
 end
  
+function event_signal(e)
+	if e.signal == 999 then
+		eq.set_timer("gm_override", 10 * 1000);
+	end
+end
+
 function event_timer(e)
+    if e.timer == "gm_override" then
+        eq.stop_timer("gm_override");
+        eq.zone_emote(MT.Default, "A Mystic Voice says 'All portals are now active!'");
+        old_world_port(eq.get_entity_list():GetClientList());
+        velious_port(eq.get_entity_list():GetClientList());
+        return;
+    end
     evt = e;
     ThreadManager:Resume("Norrath");
     ThreadManager:Resume("Velious");

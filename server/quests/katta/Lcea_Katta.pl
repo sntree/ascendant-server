@@ -29,4 +29,15 @@ sub EVENT_ITEM {
   plugin::return_items(\%itemcount); # return unused items
 }
 
+sub EVENT_KILLED_MERIT {
+	my $account_id = $client->AccountID();
+	my $char_name = $client->GetCleanName();
+	quest::set_data("luclin_lceakatta_" . $account_id, $char_name);
+	my $first_key = "first_kill_lceakatta";
+	unless (quest::get_data($first_key) || $client->GetGM()) {
+		quest::set_data($first_key, $char_name . "|" . $uguild);
+		quest::we(15, "SERVER FIRST! " . $char_name . " <" . $uguild . "> and their group have slain Lcea Katta for the first time on this server!");
+	}
+}
+
 #End of File, Zone:katta  NPC:160375 -- Lcea_Katta

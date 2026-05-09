@@ -2,7 +2,7 @@
 # Author: Straps
 #
 # Tracks which raid bosses a character has defeated per expansion era
-# (Classic, Kunark, Velious) and awards one-time rewards when all bosses
+# (Classic, Kunark, Velious, Luclin) and awards one-time rewards when all bosses
 # for an era are confirmed dead. Kill flags are stored per-account with
 # character name validation; rewards are flagged per-character so alts
 # must earn their own completions.
@@ -18,17 +18,21 @@ sub EVENT_SAY {
         my $has_kunark_char = CheckKunarkComplete($char_id);
         # Check character flags for Velious
         my $has_velious_char = CheckVeliousComplete($char_id);
+        # Check character flags for Luclin
+        my $has_luclin_char = CheckLuclinComplete($char_id);
         
         # Check character awarded flags
         my $classic_awarded = quest::get_data("classic_awarded_" . $char_id);
         my $kunark_awarded = quest::get_data("kunark_awarded_" . $char_id);
         my $velious_awarded = quest::get_data("velious_awarded_" . $char_id);
+        my $luclin_awarded = quest::get_data("luclin_awarded_" . $char_id);
         
         my $classic_link = quest::saylink("classic", 1, "Classic");
         my $kunark_link = quest::saylink("kunark", 1, "Kunark");
         my $velious_link = quest::saylink("velious", 1, "Velious");
+        my $luclin_link = quest::saylink("luclin", 1, "Luclin");
         
-        plugin::Whisper("Greetings, $name. I am Aurelian Stoneward, keeper of legendary achievements. I can help you claim rewards for completing $classic_link, $kunark_link, or $velious_link content.");
+        plugin::Whisper("Greetings, $name. I am Aurelian Stoneward, keeper of legendary achievements. I can help you claim rewards for completing $classic_link, $kunark_link, $velious_link, or $luclin_link content.");
         
         # Show status
         if ($has_classic_acct && !$classic_awarded) {
@@ -40,6 +44,9 @@ sub EVENT_SAY {
         if ($has_velious_char && !$velious_awarded) {
             plugin::Whisper("I see you have completed the Velious era! You have rewards waiting.");
         }
+        if ($has_luclin_char && !$luclin_awarded) {
+            plugin::Whisper("I see you have completed the Luclin era! You have rewards waiting.");
+        }
     }
     elsif ($text =~ /classic/i) {
         HandleClassicRequest();
@@ -49,6 +56,9 @@ sub EVENT_SAY {
     }
     elsif ($text =~ /velious/i) {
         HandleVeliousRequest();
+    }
+    elsif ($text =~ /luclin/i) {
+        HandleLuclinRequest();
     }
 }
 
@@ -86,6 +96,94 @@ sub CheckVeliousComplete {
         $has_zlandicar  && $has_zlandicar  eq $char_name &&
         $has_statue     && $has_statue     eq $char_name
     ) ? 1 : 0;
+}
+
+sub CheckLuclinComplete {
+    my ($char_id) = @_;
+    my $account_id = $client->AccountID();
+    my $char_name  = $client->GetCleanName();
+
+    my $has_grieg     = quest::get_data("luclin_griegveneficus_" . $account_id);
+    my $has_seru      = quest::get_data("luclin_seru_"           . $account_id);
+    my $has_overfiend = quest::get_data("luclin_thoughthorror_"  . $account_id);
+    my $has_crawler   = quest::get_data("luclin_insanitycrawler_" . $account_id);
+    my $has_zelnithak  = quest::get_data("luclin_zelnithak_"      . $account_id);
+    my $has_highpriest = quest::get_data("luclin_highpriestssra_" . $account_id);
+
+    return (
+        $has_grieg      && $has_grieg      eq $char_name &&
+        $has_seru       && $has_seru       eq $char_name &&
+        $has_overfiend  && $has_overfiend  eq $char_name &&
+        $has_crawler    && $has_crawler    eq $char_name &&
+        $has_zelnithak  && $has_zelnithak  eq $char_name &&
+        $has_highpriest && $has_highpriest eq $char_name
+    ) ? 1 : 0;
+}
+
+sub HandleLuclinRequest {
+    my $char_id    = $client->CharacterID();
+    my $account_id = $client->AccountID();
+    my $char_name  = $client->GetCleanName();
+
+    my $has_grieg     = quest::get_data("luclin_griegveneficus_" . $account_id);
+    my $has_seru      = quest::get_data("luclin_seru_"           . $account_id);
+    my $has_overfiend = quest::get_data("luclin_thoughthorror_"  . $account_id);
+    my $has_crawler   = quest::get_data("luclin_insanitycrawler_" . $account_id);
+    my $has_zelnithak  = quest::get_data("luclin_zelnithak_"      . $account_id);
+    my $has_highpriest = quest::get_data("luclin_highpriestssra_" . $account_id);
+
+    $has_grieg      = ($has_grieg      && $has_grieg      eq $char_name) ? 1 : 0;
+    $has_seru       = ($has_seru       && $has_seru       eq $char_name) ? 1 : 0;
+    $has_overfiend  = ($has_overfiend  && $has_overfiend  eq $char_name) ? 1 : 0;
+    $has_crawler    = ($has_crawler    && $has_crawler    eq $char_name) ? 1 : 0;
+    $has_zelnithak  = ($has_zelnithak  && $has_zelnithak  eq $char_name) ? 1 : 0;
+    $has_highpriest = ($has_highpriest && $has_highpriest eq $char_name) ? 1 : 0;
+
+    my $is_complete = ($has_grieg && $has_seru && $has_overfiend && $has_crawler && $has_zelnithak && $has_highpriest) ? 1 : 0;
+
+    # Check if already awarded to this character
+    my $already_awarded = quest::get_data("luclin_awarded_" . $char_id);
+
+    # Build status popup
+    my $grieg_status     = $has_grieg     ? "<c \"#00FF00\">DEFEATED</c>" : "<c \"#FF0000\">Not Defeated</c>";
+    my $seru_status      = $has_seru      ? "<c \"#00FF00\">DEFEATED</c>" : "<c \"#FF0000\">Not Defeated</c>";
+    my $overfiend_status = $has_overfiend ? "<c \"#00FF00\">DEFEATED</c>" : "<c \"#FF0000\">Not Defeated</c>";
+    my $crawler_status   = $has_crawler   ? "<c \"#00FF00\">DEFEATED</c>" : "<c \"#FF0000\">Not Defeated</c>";
+    my $zelnithak_status  = $has_zelnithak  ? "<c \"#00FF00\">DEFEATED</c>" : "<c \"#FF0000\">Not Defeated</c>";
+    my $highpriest_status = $has_highpriest ? "<c \"#00FF00\">DEFEATED</c>" : "<c \"#FF0000\">Not Defeated</c>";
+
+    my $popup_text = "<c \"#FFD700\"><b>Luclin Era Completion Status</b></c><br><br>"
+                   . "<c \"#FFFFFF\">To complete the Luclin era, you must defeat all six bosses:</c><br><br>"
+                   . "<c \"#00FFFF\">Grieg Veneficus</c> (Grieg's End): $grieg_status<br>"
+                   . "<c \"#00FFFF\">Lord Inquisitor Seru</c> (Sanctus Seru): $seru_status<br>"
+                   . "<c \"#00FFFF\">High Priest of Ssraeshza</c> (Ssra Temple): $highpriest_status<br>"
+                   . "<c \"#00FFFF\">Thought Horror Overfiend</c> (The Deep): $overfiend_status<br>"
+                   . "<c \"#00FFFF\">The Insanity Crawler</c> (Akheva Ruins): $crawler_status<br>"
+                   . "<c \"#00FFFF\">Zelnithak</c> (Umbral Plains): $zelnithak_status<br><br>";
+
+    if ($already_awarded) {
+        my $simple_popup = "<c \"#FFD700\"><b>Luclin Era Status</b></c><br><br>"
+                         . "<c \"#FFFFFF\">You have already claimed your Luclin rewards on this character!</c>";
+        $client->Popup2("Luclin Era Status", $simple_popup, 0, 0, 0, 0);
+        return;
+    }
+    elsif ($is_complete) {
+        $popup_text .= "<c \"#00FF00\"><b>Congratulations!</b></c><br>"
+                    . "You have defeated all six Luclin bosses!<br><br>"
+                    . "<c \"#FFD700\">Rewards:</c><br>"
+                    . "• Special reward item<br>"
+                    . "• New title<br><br>"
+                    . "<c \"#FFAA00\">After claiming, hand me your Charm of the Third Age to upgrade it to the Charm of the Fourth Age!</c><br><br>"
+                    . "<c \"#FFFFFF\">Click OK to claim your rewards!</c>";
+
+        $client->Popup2("Luclin Era Completion", $popup_text, 5007, 5008, 2, 0, "Claim Rewards", "Cancel");
+    }
+    else {
+        $popup_text .= "<c \"#FF9900\">You must defeat all six bosses to complete the Luclin era.</c><br>"
+                    . "Return to me when you have accomplished this feat!";
+
+        $client->Popup2("Luclin Era Completion", $popup_text, 0, 0, 0, 0);
+    }
 }
 
 sub HandleVeliousRequest {
@@ -252,7 +350,39 @@ sub HandleKunarkRequest {
 }
 
 sub EVENT_ITEM {
-    if (plugin::check_handin(\%itemcount, 2855 => 1)) {
+    # Reject charm turn-ins that have augments — player must remove augs first
+    my @charm_ids = (2827, 2855, 2854);
+    for my $slot (1..4) {
+        my $inst = plugin::val("item${slot}_inst");
+        next unless $inst;
+        my $traded_id = plugin::val("item${slot}");
+        next unless $traded_id && grep { $_ == $traded_id } @charm_ids;
+        for my $aug (0..5) {
+            if ($inst->GetAugmentItemID($aug) && $inst->GetAugmentItemID($aug) > 0) {
+                plugin::Whisper("I cannot accept a charm that has augments in it! Please remove all augments before handing me the charm.");
+                $client->SummonItem($traded_id);
+                return;
+            }
+        }
+    }
+
+    if (plugin::check_handin(\%itemcount, 2827 => 1)) {
+        my $char_id = $client->CharacterID();
+        my $luclin_awarded = quest::get_data("luclin_awarded_" . $char_id);
+        
+        if ($luclin_awarded) {
+            # They've completed Luclin, upgrade their charm
+            $client->SummonItem(2829);
+            plugin::Whisper("Your charm has been upgraded! This legendary Charm of the Fourth Age reflects your mastery over the shadows of Luclin.");
+            $client->Message(15, "You received: Charm of the Fourth Age");
+        }
+        else {
+            # They haven't completed Luclin yet — return the charm directly
+            plugin::Whisper("You have not yet claimed your Luclin rewards. Please click 'Claim Rewards' first, then hand me the charm.");
+            $client->SummonItem(2827);
+        }
+    }
+    elsif (plugin::check_handin(\%itemcount, 2855 => 1)) {
         my $char_id = $client->CharacterID();
         my $velious_awarded = quest::get_data("velious_awarded_" . $char_id);
         
@@ -442,6 +572,62 @@ sub EVENT_POPUPRESPONSE {
         }
     }
     elsif ($popupid == 5006) {
+        plugin::Whisper("Very well. Return when you are ready to claim your rewards.");
+    }
+    elsif ($popupid == 5007) {
+        # Luclin rewards claim
+        my $char_id = $client->CharacterID();
+
+        # Check if already awarded
+        my $already_awarded = quest::get_data("luclin_awarded_" . $char_id);
+        if ($already_awarded) {
+            plugin::Whisper("You have already claimed your Luclin rewards!");
+            return;
+        }
+
+        # Verify completion
+        my $account_id = $client->AccountID();
+        my $char_name  = $client->GetCleanName();
+        my $has_grieg     = quest::get_data("luclin_griegveneficus_" . $account_id);
+        my $has_seru      = quest::get_data("luclin_seru_"           . $account_id);
+        my $has_overfiend = quest::get_data("luclin_thoughthorror_"  . $account_id);
+        my $has_crawler   = quest::get_data("luclin_insanitycrawler_" . $account_id);
+        my $has_zelnithak  = quest::get_data("luclin_zelnithak_"      . $account_id);
+        my $has_highpriest = quest::get_data("luclin_highpriestssra_" . $account_id);
+
+        $has_grieg      = ($has_grieg      && $has_grieg      eq $char_name) ? 1 : 0;
+        $has_seru       = ($has_seru       && $has_seru       eq $char_name) ? 1 : 0;
+        $has_overfiend  = ($has_overfiend  && $has_overfiend  eq $char_name) ? 1 : 0;
+        $has_crawler    = ($has_crawler    && $has_crawler    eq $char_name) ? 1 : 0;
+        $has_zelnithak  = ($has_zelnithak  && $has_zelnithak  eq $char_name) ? 1 : 0;
+        $has_highpriest = ($has_highpriest && $has_highpriest eq $char_name) ? 1 : 0;
+
+        if ($has_grieg && $has_seru && $has_overfiend && $has_crawler && $has_zelnithak && $has_highpriest) {
+            # Award items and titles
+            $client->SummonItem(2830);
+
+            # Grant titles
+            quest::enabletitle(412);
+
+            # Mark as awarded (permanent)
+            quest::set_data("luclin_awarded_" . $char_id, $client->GetCleanName());
+
+            # World announcement
+            quest::we(15, "$char_name has claimed their Luclin era rewards for conquering the shadows of Luclin! Congratulations, champion!");
+
+            # Messages
+            $client->Message(15, "═══════════════════════════════════════════════════");
+            $client->Message(15, "Luclin Era Rewards Claimed!");
+            $client->Message(15, "You received a special reward and unlocked a new title!");
+            $client->Message(15, "═══════════════════════════════════════════════════");
+
+            plugin::Whisper("Congratulations, $name! Your Luclin era achievements have been rewarded. Now hand me your Charm of the Third Age and I will upgrade it to the Charm of the Fourth Age!");
+        }
+        else {
+            plugin::Whisper("I cannot grant you the rewards. You must defeat all six Luclin bosses first.");
+        }
+    }
+    elsif ($popupid == 5008) {
         plugin::Whisper("Very well. Return when you are ready to claim your rewards.");
     }
 }

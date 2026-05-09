@@ -13,7 +13,7 @@ sub EVENT_ITEM {
     quest::we(15, "$name has obtained $item_link! Congratulations, $name!");
 
     my $first_key = "first_epic_class_" . $client->GetClass();
-    unless (quest::get_data($first_key)) {
+    unless (quest::get_data($first_key) || $client->GetGM()) {
         quest::set_data($first_key, $name);
         quest::enabletitle(406);
         quest::we(15, "A historic moment! $name is the FIRST " . $client->GetClassName() . " to obtain their class epic on this server! A title of legend has been bestowed!");

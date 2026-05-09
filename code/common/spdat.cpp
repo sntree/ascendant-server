@@ -2277,6 +2277,7 @@ bool IsInstrumentModifierAppliedToSpellEffect(uint16 spell_id, int effect_id)
 		}
 
 		case SpellEffect::CurrentHP:
+		case SpellEffect::CurrentHPOnce:
 		case SpellEffect::ArmorClass:
 		case SpellEffect::ACv2:
 		case SpellEffect::MovementSpeed:

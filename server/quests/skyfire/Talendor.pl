@@ -8,7 +8,7 @@ sub EVENT_KILLED_MERIT {
 	quest::set_data("kunark_talendor_" . $account_id, $char_name);
 	
 	my $first_key = "first_kill_talendor";
-	unless (quest::get_data($first_key)) {
+	unless (quest::get_data($first_key) || $client->GetGM()) {
 		quest::set_data($first_key, $char_name . "|" . $uguild);
 		quest::we(15, "SERVER FIRST! " . $char_name . " <" . $uguild . "> and their group have slain Talendor for the first time on this server!");
 	}

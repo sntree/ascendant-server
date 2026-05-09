@@ -17,3 +17,14 @@ if (e.timer == 'depop') then
 eq.depop();
 end
 end
+
+function event_killed_merit(e)
+	local account_id = e.other:AccountID()
+	local char_name = e.other:GetCleanName()
+	eq.set_data("luclin_doomshade_" .. account_id, char_name)
+	local first_key = "first_kill_doomshade"
+	if eq.get_data(first_key) == "" and not e.other:GetGM() then
+		eq.set_data(first_key, char_name)
+		eq.world_emote(15, "SERVER FIRST! " .. char_name .. " and their group have slain Doomshade for the first time on this server!")
+	end
+end

@@ -8,11 +8,17 @@
 # Set to 1 to restrict Velious ports to GMs only, 0 for all players
 my $VELIOUS_ADMIN_ONLY = 0;
 
+# Set to 1 to enable Luclin ports for all players, 0 = GM only
+my $LUCLIN_PORTS_ENABLED = 1;
+
 sub EVENT_SAY {
   if ($text =~ /hail/i) {
     my $eras = quest::saylink("classic", 1, "classic")." or ".quest::saylink("kunark", 1, "kunark");
     if (!$VELIOUS_ADMIN_ONLY || $client->Admin() >= 100) {
       $eras .= " or ".quest::saylink("velious", 1, "velious");
+    }
+    if ($LUCLIN_PORTS_ENABLED || $client->Admin() >= 100) {
+      $eras .= " or ".quest::saylink("luclin", 1, "luclin");
     }
     plugin::Whisper("Greetings, $name. I am Spirekeeper Aethen, master of the arcane spires. " .
                     "I can transport you to the great wizard spires across Norrath. " .
@@ -68,6 +74,35 @@ sub EVENT_SAY {
     if ($VELIOUS_ADMIN_ONLY && $client->Admin() < 100) { return; }
     plugin::Whisper("Transporting you to Cobalt Scar wizard spire...");
     quest::movepc(117, -1634, -1065, 299);
+  }
+  elsif ($text =~ /^luclin$/i) {
+    if (!$LUCLIN_PORTS_ENABLED && $client->Admin() < 100) {
+      plugin::Whisper("The spires of Luclin are not yet open to travelers.");
+      return;
+    }
+    plugin::Whisper("Luclin wizard spires: ".quest::saylink("Nexus Spire", 1, "Nexus").", " .
+                    quest::saylink("Twilight Spire", 1, "Twilight").", ".quest::saylink("Dawnshroud Spire", 1, "Dawnshroud").", or " .
+                    quest::saylink("Grimling Spire", 1, "Grimling").".");
+  }
+  elsif ($text =~ /^nexus spire$/i) {
+    if (!$LUCLIN_PORTS_ENABLED && $client->Admin() < 100) { return; }
+    plugin::Whisper("Transporting you to the Nexus...");
+    quest::movepc(152, 0, 0, -28);
+  }
+  elsif ($text =~ /^twilight spire$/i) {
+    if (!$LUCLIN_PORTS_ENABLED && $client->Admin() < 100) { return; }
+    plugin::Whisper("Transporting you to Twilight Sea wizard spire...");
+    quest::movepc(170, -656, -125, -22);
+  }
+  elsif ($text =~ /^dawnshroud spire$/i) {
+    if (!$LUCLIN_PORTS_ENABLED && $client->Admin() < 100) { return; }
+    plugin::Whisper("Transporting you to Dawnshroud Peaks wizard spire...");
+    quest::movepc(174, 325, -996, 121);
+  }
+  elsif ($text =~ /^grimling spire$/i) {
+    if (!$LUCLIN_PORTS_ENABLED && $client->Admin() < 100) { return; }
+    plugin::Whisper("Transporting you to Grimling Forest wizard spire...");
+    quest::movepc(167, -690, -1170, 13);
   }
   elsif ($text =~ /^dreadlands combine$/i) {
     plugin::Whisper("Transporting you to the Combine area in Dreadlands...");

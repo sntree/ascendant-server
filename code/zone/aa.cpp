@@ -980,7 +980,24 @@ void Client::SendAlternateAdvancementRank(int aa_id, int level) {
 	}
 
 	for(auto &prereq : rank->prereqs) {
-		outapp->WriteSInt32(prereq.first);
+		int prereq_aa_id = prereq.first;
+
+		// If the character has the universal equivalent but NOT the original at required rank,
+		// substitute the universal AA ID in the packet so the client enables the purchase button.
+		auto alt_it = rank->prereq_alternates.find(prereq.first);
+		if (alt_it != rank->prereq_alternates.end()) {
+			AA::Ability *orig_ability = zone->GetAlternateAdvancementAbility(prereq.first);
+			bool has_original = orig_ability && GetAA(orig_ability->first_rank_id) >= prereq.second;
+
+			if (!has_original) {
+				AA::Ability *alt_ability = zone->GetAlternateAdvancementAbility(alt_it->second);
+				if (alt_ability && GetAA(alt_ability->first_rank_id) >= prereq.second) {
+					prereq_aa_id = alt_it->second;
+				}
+			}
+		}
+
+		outapp->WriteSInt32(prereq_aa_id);
 		outapp->WriteSInt32(prereq.second);
 	}
 
@@ -1709,6 +1726,16 @@ bool Mob::CanPurchaseAlternateAdvancementRank(AA::Rank *rank, bool check_price, 
 
 		if (prereq_ability) {
 			auto ranks = GetAA(prereq_ability->first_rank_id);
+
+			// Check alternate (universal) prereq if original not met
+			auto alt_it = rank->prereq_alternates.find(prereq.first);
+			if (alt_it != rank->prereq_alternates.end()) {
+				AA::Ability *alt_ability = zone->GetAlternateAdvancementAbility(alt_it->second);
+				if (alt_ability) {
+					ranks = std::max(ranks, GetAA(alt_ability->first_rank_id));
+				}
+			}
+
 			if (ranks < prereq.second) {
 				return false;
 			}
@@ -1919,6 +1946,37 @@ bool ZoneDatabase::LoadAlternateAdvancementAbilities(
 		Strings::Commify(aa_rank_prereqs.size()),
 		aa_rank_prereqs.size() != 1 ? "s" : ""
 	);
+
+	// Load AA prereq equivalences from aa_custom_mapping (tome system)
+	{
+		std::map<int, int> aa_mapping;
+		auto mapping_results = QueryDatabase("SELECT original_aa_id, universal_aa_id FROM aa_custom_mapping");
+		if (mapping_results.Success()) {
+			for (auto row = mapping_results.begin(); row != mapping_results.end(); ++row) {
+				aa_mapping[Strings::ToInt(row[0])] = Strings::ToInt(row[1]);
+			}
+		}
+
+		int alternate_count = 0;
+		if (!aa_mapping.empty()) {
+			for (auto &rp : ranks) {
+				AA::Rank *rank = rp.second.get();
+				for (auto &prereq : rank->prereqs) {
+					auto it = aa_mapping.find(prereq.first);
+					if (it != aa_mapping.end()) {
+						rank->prereq_alternates[prereq.first] = it->second;
+						alternate_count++;
+					}
+				}
+			}
+		}
+
+		LogInfo(
+			"Loaded [{}] AA prereq alternate mapping{}.",
+			alternate_count,
+			alternate_count != 1 ? "s" : ""
+		);
+	}
 
 	return true;
 }

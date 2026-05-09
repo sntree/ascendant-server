@@ -146,7 +146,7 @@ sub EVENT_SPAWN {
   # Skip combat scaling for pets, but allow other pet logic
   my $is_pet = $npc->IsPet();
 
-  if (!$is_pet && !plugin::IsScalingZone($zoneid) && !plugin::IsLdonScalingZone($zoneid)) {
+  if (!$is_pet && !plugin::IsScalingZone($zoneid) && !plugin::IsLdonScalingZone($zoneid) && !plugin::IsLuclinScalingZone($zoneid)) {
 
 
     # ---------- DAMAGE ----------
@@ -191,7 +191,7 @@ sub EVENT_SPAWN {
         my $new_hp = int($max_hp * $hp_mult);
 
         $npc->ModifyNPCStat("max_hp", $new_hp);
-        $npc->SetHP($new_hp);
+        $npc->SetHP($npc->GetMaxHP());
     }
 
     # ---------- ATK ----------
@@ -529,6 +529,7 @@ sub EVENT_COMBAT {
     if ($combat_state == 1) {
         plugin::EncounterScaling_OnEngage($npc);
         plugin::LdonScaling_OnEngage($npc);
+        plugin::LuclinScaling_OnEngage($npc);
         plugin::AprilFools_OnEngage($npc);
 
         # Fellowship mob strength scaling (after encounter scaling)
@@ -542,6 +543,7 @@ sub EVENT_COMBAT {
     } else {
         plugin::EncounterScaling_OnDisengage($npc);
         plugin::LdonScaling_OnDisengage($npc);
+        plugin::LuclinScaling_OnDisengage($npc);
         plugin::Fellowship_RestoreMob($npc);
     }
 }
@@ -560,6 +562,7 @@ sub EVENT_TIMER {
   if ($timer eq 'enc_rescan') {
     plugin::EncounterScaling_Rescan($npc);
     plugin::LdonScaling_Rescan($npc);
+    plugin::LuclinScaling_Rescan($npc);
     return;
   }
 

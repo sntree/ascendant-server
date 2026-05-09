@@ -26,6 +26,7 @@
 #include "common/repositories/buyer_buy_lines_repository.h"
 #include "common/repositories/buyer_repository.h"
 #include "common/repositories/character_parcels_repository.h"
+#include "common/repositories/inventory_repository.h"
 #include "common/repositories/trader_repository.h"
 #include "common/rulesys.h"
 #include "common/strings.h"
@@ -2932,6 +2933,43 @@ void Client::BuyTraderItemOutsideBazaar(TraderBuy_Struct *tbs, const EQApplicati
 		return;
 	}
 
+	auto seller_inventory_item = InventoryRepository::GetWhere(
+		database,
+		fmt::format(
+			"`character_id` = {} AND `guid` = {} LIMIT 1",
+			trader_item.char_id,
+			trader_item.item_sn
+		)
+	);
+	if (seller_inventory_item.empty()) {
+		LogTrading("Attempt to purchase an item outside of the Bazaar trader_id <red>[{}] item serial_number "
+				   "<red>[{}] The seller inventory item was not found.",
+				   tbs->trader_id,
+				   tbs->serial_number
+		);
+		in->method     = BazaarByParcel;
+		in->sub_action = DataOutDated;
+		TraderRepository::DeleteOne(database, trader_item.id);
+		TradeRequestFailed(app);
+		return;
+	}
+
+	const auto seller_inventory = seller_inventory_item.front();
+	const auto seller_item_data = database.GetItem(trader_item.item_id);
+	if (!seller_item_data || seller_inventory.item_id != trader_item.item_id ||
+		(seller_item_data->Stackable && seller_inventory.charges < static_cast<uint32>(trader_item.item_charges))) {
+		LogTrading("Attempt to purchase an item outside of the Bazaar trader_id <red>[{}] item serial_number "
+				   "<red>[{}] The seller inventory item did not match the trader listing.",
+				   tbs->trader_id,
+				   tbs->serial_number
+		);
+		in->method     = BazaarByParcel;
+		in->sub_action = DataOutDated;
+		TraderRepository::DeleteOne(database, trader_item.id);
+		TradeRequestFailed(app);
+		return;
+	}
+
 	std::unique_ptr<EQ::ItemInstance> buy_item(
 		database.CreateItem(
 			trader_item.item_id,
@@ -3105,7 +3143,8 @@ void Client::BuyTraderItemOutsideBazaar(TraderBuy_Struct *tbs, const EQApplicati
 				 parcel_out.item_id,
 				 parcel_out.quantity
 		);
-		Message(Chat::Yellow, "Unable to save parcel to the database. Please contact an administrator.");
+		AddMoneyToPP(total_cost + fee, false);
+		Message(Chat::Yellow, "Unable to save parcel to the database. Your money has been refunded.");
 		in->method     = BazaarByParcel;
 		in->sub_action = Failed;
 		TraderRepository::UpdateActiveTransaction(database, trader_item.id, false);
@@ -3145,6 +3184,7 @@ void Client::BuyTraderItemOutsideBazaar(TraderBuy_Struct *tbs, const EQApplicati
 			trader_item.item_sn,
 			trader_item.item_charges - tbs->quantity
 		);
+		TraderRepository::UpdateActiveTransaction(database, trader_item.id, false);
 	}
 
 	SendParcelDeliveryToWorld(ps);

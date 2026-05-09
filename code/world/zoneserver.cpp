@@ -22,12 +22,16 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include "common/content/world_content_service.h"
 #include "common/events/player_event_logs.h"
 #include "common/guilds.h"
+#include "common/inventory_profile.h"
 #include "common/md5.h"
 #include "common/misc.h"
 #include "common/packet_dump.h"
 #include "common/patches/patches.h"
 #include "common/repositories/buyer_repository.h"
+#include "common/repositories/character_currency_repository.h"
 #include "common/repositories/guild_tributes_repository.h"
+#include "common/repositories/inventory_repository.h"
+#include "common/repositories/items_repository.h"
 #include "common/repositories/player_event_logs_repository.h"
 #include "common/repositories/trader_repository.h"
 #include "common/server_reload_types.h"
@@ -1698,6 +1702,73 @@ void ZoneServer::HandleMessage(uint16 opcode, const EQ::Net::Packet &p) {
 			auto trader = ClientList::Instance()->FindCLEByCharacterID(in->trader_buy_struct.trader_id);
 			if (trader) {
 				ZSList::Instance()->SendPacket(trader->zone(), trader->instance(), pack);
+			}
+			else {
+				const auto item_sn = Strings::ToUnsignedBigInt(in->trader_buy_struct.serial_number);
+				auto inventory_items = InventoryRepository::GetWhere(
+					database,
+					fmt::format(
+						"`character_id` = {} AND `guid` = {} LIMIT 1",
+						in->trader_buy_struct.trader_id,
+						item_sn
+					)
+				);
+				uint32 reconciled_inventory_rows = 0;
+				uint32 reconciled_currency_rows  = 0;
+
+				if (!inventory_items.empty()) {
+					auto item = inventory_items.front();
+					const auto item_data = content_db.GetItem(item.item_id);
+					if (item_data && item_data->Stackable && item.charges > in->trader_buy_struct.quantity) {
+						item.charges -= in->trader_buy_struct.quantity;
+						reconciled_inventory_rows += InventoryRepository::ReplaceOne(database, item);
+					}
+					else {
+						reconciled_inventory_rows += InventoryRepository::DeleteWhere(
+							database,
+							fmt::format(
+								"`character_id` = {} AND `guid` = {}",
+								in->trader_buy_struct.trader_id,
+								item_sn
+							)
+						);
+
+						for (uint8 bag_slot = EQ::invbag::SLOT_BEGIN; bag_slot <= EQ::invbag::SLOT_END; ++bag_slot) {
+							const auto container_slot = EQ::InventoryProfile::CalcSlotId(item.slot_id, bag_slot);
+							if (container_slot != INVALID_INDEX) {
+								reconciled_inventory_rows += InventoryRepository::DeleteWhere(
+									database,
+									fmt::format(
+										"`character_id` = {} AND `slot_id` = {}",
+										in->trader_buy_struct.trader_id,
+										container_slot
+									)
+								);
+							}
+						}
+					}
+
+					auto currency = CharacterCurrencyRepository::FindOne(database, in->trader_buy_struct.trader_id);
+					if (currency.id) {
+						uint64 copper = static_cast<uint64>(in->trader_buy_struct.price) * in->trader_buy_struct.quantity;
+						currency.platinum += copper / 1000;
+						copper %= 1000;
+						currency.gold += copper / 100;
+						copper %= 100;
+						currency.silver += copper / 10;
+						currency.copper += copper % 10;
+						reconciled_currency_rows = CharacterCurrencyRepository::UpdateOne(database, currency);
+					}
+				}
+
+				LogTrading(
+					"ServerOP_BazaarPurchase: Trader char_id <red>[{}] not found in world. "
+					"Item serial <red>[{}] already purchased via parcel; persisted inventory reconcile affected [{}] row(s), currency reconcile affected [{}] row(s).",
+					in->trader_buy_struct.trader_id,
+					in->trader_buy_struct.serial_number,
+					reconciled_inventory_rows,
+					reconciled_currency_rows
+				);
 			}
 
 			break;

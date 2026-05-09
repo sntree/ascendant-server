@@ -12,7 +12,7 @@
 # priority (later expansions override earlier ones for overlapping ranges).
 
 sub active_expansions {
-    return ('classic', 'kunark', 'velious', 'ldon');
+    return ('classic', 'kunark', 'velious', 'ldon', 'luclin');
 }
 
 #=============================================================================
@@ -59,6 +59,7 @@ sub _expansion_pool_dispatch {
     if ($exp eq 'kunark')  { return plugin::kunark_rare_pools(); }
     if ($exp eq 'velious') { return plugin::velious_rare_pools(); }
     if ($exp eq 'ldon')    { return plugin::ldon_rare_pools(); }
+    if ($exp eq 'luclin')  { return plugin::luclin_rare_pools(); }
     return undef;
 }
 
@@ -68,6 +69,7 @@ sub _expansion_blocks_dispatch {
     if ($exp eq 'kunark')  { return plugin::kunark_level_blocks(); }
     if ($exp eq 'velious') { return plugin::velious_level_blocks(); }
     if ($exp eq 'ldon')    { return plugin::ldon_level_blocks(); }
+    if ($exp eq 'luclin')  { return plugin::luclin_level_blocks(); }
     return undef;
 }
 
@@ -75,6 +77,7 @@ sub _expansion_raid_dispatch {
     my $exp = shift;
     if ($exp eq 'classic') { return plugin::classic_raid_config(); }
     if ($exp eq 'kunark')  { return plugin::kunark_raid_config(); }
+    if ($exp eq 'luclin')  { return plugin::luclin_raid_config(); }
     return undef;
 }
 
@@ -84,18 +87,21 @@ sub _expansion_zone_dispatch {
     if ($exp eq 'kunark')  { return plugin::kunark_zone_ids(); }
     if ($exp eq 'velious') { return plugin::velious_zone_ids(); }
     if ($exp eq 'ldon')    { return plugin::ldon_zone_ids(); }
+    if ($exp eq 'luclin')  { return plugin::luclin_zone_ids(); }
     return undef;
 }
 
 sub _expansion_raid_pool_dispatch {
     my $exp = shift;
     if ($exp eq 'velious') { return plugin::velious_raid_pools(); }
+    if ($exp eq 'luclin')  { return plugin::luclin_raid_pools(); }
     return undef;
 }
 
 sub _expansion_raid_blocks_dispatch {
     my $exp = shift;
     if ($exp eq 'velious') { return plugin::velious_raid_level_blocks(); }
+    if ($exp eq 'luclin')  { return plugin::luclin_raid_level_blocks(); }
     return undef;
 }
 

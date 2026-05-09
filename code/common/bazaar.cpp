@@ -159,6 +159,7 @@ Bazaar::GetSearchResults(
 	std::string search_criteria_trader("TRUE");
 	std::string field_criteria_items("FALSE");
 	std::string where_criteria_items(" TRUE ");
+	search_criteria_trader.append(" AND trader.active_transaction = 0");
 
 	if (search.search_scope == NonRoFBazaarSearchScope) {
 		search_criteria_trader.append(

@@ -52,6 +52,7 @@ public:
 	Ability *base_ability;
 	std::vector<RankEffect> effects;
 	std::map<int, int> prereqs;
+	std::map<int, int> prereq_alternates;
 };
 
 } // namespace AA

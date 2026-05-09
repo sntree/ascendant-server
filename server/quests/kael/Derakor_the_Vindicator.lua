@@ -5,7 +5,7 @@ function event_killed_merit(e)
 	eq.set_data("velious_derakor_" .. account_id, char_name);
 
 	local first_key = "first_kill_derakor";
-	if (eq.get_data(first_key) == "") then
+	if (eq.get_data(first_key) == "" and not e.other:GetGM()) then
 		eq.set_data(first_key, char_name);
 		eq.world_emote(15, "SERVER FIRST! " .. char_name .. " and their group have slain Derakor the Vindicator for the first time on this server!");
 	end

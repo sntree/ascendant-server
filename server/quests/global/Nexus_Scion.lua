@@ -1,10 +1,13 @@
 -- Nexus_Scion in multiple zones
--- DISABLED - Commented out to prevent Luclin portal functionality
+-- Gated by Shadows of Luclin expansion flag
 
---[[
 local ThreadManager = require("thread_manager");
 
 function event_spawn(e)
+	if not eq.is_the_shadows_of_luclin_enabled() then
+		return;
+	end
+
 	port_locs = { e.self:GetX()-100, e.self:GetX()+100, e.self:GetY()-100, e.self:GetY()+100 }
 	eq.set_timer("heartbeat", 500);
 
@@ -13,11 +16,36 @@ function event_spawn(e)
 end
 
 function event_timer(e)
+	if e.timer == "gm_override" then
+		eq.stop_timer("gm_override");
+		if port_locs == nil then
+			port_locs = { e.self:GetX()-100, e.self:GetX()+100, e.self:GetY()-100, e.self:GetY()+100 }
+		end
+		e.self:Say("The portal to Luclin is now active!");
+		luclin_port(eq.get_entity_list():GetClientList());
+		return;
+	end
+	if not eq.is_the_shadows_of_luclin_enabled() then
+		return;
+	end
 	evt = e;
 	ThreadManager:Resume("Luclin");
 end
 
 function event_say(e)
+	if not eq.is_the_shadows_of_luclin_enabled() then
+		if e.message:findi("hail") then
+			e.self:Say("The portals to Luclin are not yet active, traveler.");
+		end
+		return;
+	end
+
+	if e.message:findi("activate") and e.other:Admin() >= 40 then
+		e.self:Say("Portal override acknowledged. Activating in 10 seconds.");
+		eq.set_timer("gm_override", 10 * 1000);
+		return;
+	end
+
 	if e.message:findi("hail") then
 		e.self:Say("Hello, traveler! Do you wish to [journey to luclin]?");
 	elseif e.message:findi("journey to luclin") then
@@ -53,4 +81,3 @@ function luclin_port(player_list)
 		end
 	end
 end
---]]

@@ -7,11 +7,17 @@
 # Set to 1 to restrict Velious ports to GMs only, 0 for all players
 my $VELIOUS_ADMIN_ONLY = 0;
 
+# Set to 1 to enable Luclin ports for all players, 0 = GM only
+my $LUCLIN_PORTS_ENABLED = 1;
+
 sub EVENT_SAY {
   if ($text =~ /hail/i) {
     my $eras = quest::saylink("classic", 1, "classic")." or ".quest::saylink("kunark", 1, "kunark");
     if (!$VELIOUS_ADMIN_ONLY || $client->Admin() >= 100) {
       $eras .= " or ".quest::saylink("velious", 1, "velious");
+    }
+    if ($LUCLIN_PORTS_ENABLED || $client->Admin() >= 100) {
+      $eras .= " or ".quest::saylink("luclin", 1, "luclin");
     }
     plugin::Whisper("Greetings, $name. I am Circlekeeper Aurin, guardian of the ancient druid rings. " .
                     "I can guide you to the sacred circles across Norrath. " .
@@ -124,6 +130,35 @@ sub EVENT_SAY {
     elsif ($text =~ /sharvahl/i) {
     plugin::Whisper("Transporting you to Sharvahl druid ring...");
     quest::movepc(155, 82.38, -1235, -189);
+  }
+  elsif ($text =~ /^luclin$/i) {
+    if (!$LUCLIN_PORTS_ENABLED && $client->Admin() < 100) {
+      plugin::Whisper("The circles of Luclin are not yet open to travelers.");
+      return;
+    }
+    plugin::Whisper("Luclin druid rings: ".quest::saylink("Nexus Circle", 1, "Nexus").", " .
+                    quest::saylink("Twilight", 1).", ".quest::saylink("Dawnshroud Peaks", 1).", or " .
+                    quest::saylink("Grimling Forest", 1).".");
+  }
+  elsif ($text =~ /^nexus circle$/i) {
+    if (!$LUCLIN_PORTS_ENABLED && $client->Admin() < 100) { return; }
+    plugin::Whisper("Transporting you to the Nexus...");
+    quest::movepc(152, 0, 0, -28);
+  }
+  elsif ($text =~ /^twilight$/i) {
+    if (!$LUCLIN_PORTS_ENABLED && $client->Admin() < 100) { return; }
+    plugin::Whisper("Transporting you to Twilight Sea druid ring...");
+    quest::movepc(170, -656, -125, -22);
+  }
+  elsif ($text =~ /^dawnshroud peaks$/i) {
+    if (!$LUCLIN_PORTS_ENABLED && $client->Admin() < 100) { return; }
+    plugin::Whisper("Transporting you to Dawnshroud Peaks druid ring...");
+    quest::movepc(174, 325, -996, 121);
+  }
+  elsif ($text =~ /^grimling forest$/i) {
+    if (!$LUCLIN_PORTS_ENABLED && $client->Admin() < 100) { return; }
+    plugin::Whisper("Transporting you to Grimling Forest druid ring...");
+    quest::movepc(167, -690, -1170, 13);
   }
       elsif ($text =~ /send me to expedition/i) {
         if (!plugin::HasExpeditionPortPass($client)) {

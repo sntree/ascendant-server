@@ -33,7 +33,7 @@ function event_trade(e)
 		eq.world_emote(15, e.other:GetName() .. " has obtained " .. item_link .. "! Congratulations, " .. e.other:GetName() .. "!");
 
 		local first_key = "first_epic_class_" .. e.other:GetClass();
-		if eq.get_data(first_key) == "" then
+		if eq.get_data(first_key) == "" and not e.other:GetGM() then
 			eq.set_data(first_key, e.other:GetName());
 			eq.enable_title(406);
 			eq.world_emote(15, "A historic moment! " .. e.other:GetName() .. " is the FIRST " .. e.other:Class() .. " to obtain their class epic on this server! A title of legend has been bestowed!");

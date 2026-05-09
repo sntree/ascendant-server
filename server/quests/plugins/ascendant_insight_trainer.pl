@@ -10,7 +10,7 @@
 # ── Server progression constant ──
 # Update this when a new expansion unlocks on the server.
 # Expansion numbers: 0-9=Classic, 10-11=Kunark, 12-14=Velious, 15=Luclin, 16=PoP, 17+=GoD+
-my $CURRENT_MAX_EXPANSION = 14;  # Currently: Kunark
+my $CURRENT_MAX_EXPANSION = 15;  # Currently: Kunark
 
 # ── Economy constants ──
 # Each tome gives 1 credit of its tier; each AA rank costs 1 credit of its tier
@@ -57,6 +57,16 @@ my $ITEMS_PER_PAGE = 10;
 sub _class_bitmask {
     my ($class_num) = @_;
     return 1 << ($class_num - 1);
+}
+
+# Mapping scope decides which trainer may offer an AA. Native grant eligibility
+# must come from the real original AA row, or bad mapping masks can make the
+# plugin grant an original AA to a class the core server rejects.
+sub _has_native_access {
+    my ($aa, $player_bitmask) = @_;
+    my $actual_classes = $aa->{original_ability_classes};
+    $actual_classes = $aa->{original_classes} unless defined $actual_classes;
+    return (($actual_classes & $player_bitmask) > 0) ? 1 : 0;
 }
 
 # ============================================================
@@ -254,7 +264,8 @@ sub ShowTrainingMenu {
     my $sth = $dbh->prepare(
         "SELECT acm.universal_aa_id, acm.aa_name, acm.tier, acm.original_classes, " .
         "ua.first_rank_id AS universal_first_rank_id, " .
-        "oa.first_rank_id AS original_first_rank_id " .
+        "oa.first_rank_id AS original_first_rank_id, " .
+        "oa.classes AS original_ability_classes " .
         "FROM aa_custom_mapping acm " .
         "JOIN aa_ability ua ON ua.id = acm.universal_aa_id " .
         "JOIN aa_ability oa ON oa.id = acm.original_aa_id " .
@@ -289,7 +300,7 @@ sub ShowTrainingMenu {
     # Only hide AAs where the next rank requires level > 60.
     # Maxed AAs and prereq-blocked AAs always remain visible.
     @all_aas = grep {
-        my $frid = (($_->{original_classes} & $player_bitmask) > 0)
+        my $frid = _has_native_access($_, $player_bitmask)
                    ? $_->{original_first_rank_id}
                    : $_->{universal_first_rank_id};
         my $cur          = $client->GetAALevel($frid);
@@ -322,7 +333,7 @@ sub ShowTrainingMenu {
         my $tier_balance = $bal{$tier} || 0;
 
         # Check if player has native access to determine which first_rank_id to use
-        my $has_native = ($aa->{original_classes} & $player_bitmask) ? 1 : 0;
+        my $has_native = _has_native_access($aa, $player_bitmask);
         my $first_rank_id = $has_native ? $aa->{original_first_rank_id} : $aa->{universal_first_rank_id};
 
         my $current_rank = $client->GetAALevel($first_rank_id);
@@ -376,7 +387,8 @@ sub ShowAADetail {
     my $sth = $dbh->prepare(
         "SELECT acm.universal_aa_id, acm.original_aa_id, acm.aa_name, acm.tier, acm.original_classes, " .
         "ua.first_rank_id AS universal_first_rank_id, " .
-        "oa.first_rank_id AS original_first_rank_id " .
+        "oa.first_rank_id AS original_first_rank_id, " .
+        "oa.classes AS original_ability_classes " .
         "FROM aa_custom_mapping acm " .
         "JOIN aa_ability ua ON ua.id = acm.universal_aa_id " .
         "JOIN aa_ability oa ON oa.id = acm.original_aa_id " .
@@ -405,7 +417,7 @@ sub ShowAADetail {
     # Native class players use original rank chain; cross-class use universal
     my $player_class = $client->GetClass();
     my $player_bitmask = 1 << ($player_class - 1);
-    my $has_native = ($aa->{original_classes} & $player_bitmask) ? 1 : 0;
+    my $has_native = _has_native_access($aa, $player_bitmask);
     my $first_rank_id = $has_native ? $aa->{original_first_rank_id} : $aa->{universal_first_rank_id};
 
     my $current_rank = $client->GetAALevel($first_rank_id);
@@ -580,7 +592,8 @@ sub ShowBuyConfirmation {
     my $sth = $dbh->prepare(
         "SELECT acm.universal_aa_id, acm.aa_name, acm.tier, acm.original_classes, " .
         "ua.first_rank_id AS universal_first_rank_id, " .
-        "oa.first_rank_id AS original_first_rank_id " .
+        "oa.first_rank_id AS original_first_rank_id, " .
+        "oa.classes AS original_ability_classes " .
         "FROM aa_custom_mapping acm " .
         "JOIN aa_ability ua ON ua.id = acm.universal_aa_id " .
         "JOIN aa_ability oa ON oa.id = acm.original_aa_id " .
@@ -602,7 +615,7 @@ sub ShowBuyConfirmation {
     # Native class players use original rank chain; cross-class use universal
     my $player_class = $client->GetClass();
     my $player_bitmask = 1 << ($player_class - 1);
-    my $has_native = ($aa->{original_classes} & $player_bitmask) ? 1 : 0;
+    my $has_native = _has_native_access($aa, $player_bitmask);
     my $first_rank_id = $has_native ? $aa->{original_first_rank_id} : $aa->{universal_first_rank_id};
 
     my $current_rank = $client->GetAALevel($first_rank_id);
@@ -674,7 +687,8 @@ sub HandleTrainRequest {
     my $sth = $dbh->prepare(
         "SELECT acm.universal_aa_id, acm.original_aa_id, acm.aa_name, acm.tier, acm.original_classes, " .
         "ua.first_rank_id AS universal_first_rank_id, " .
-        "oa.first_rank_id AS original_first_rank_id " .
+        "oa.first_rank_id AS original_first_rank_id, " .
+        "oa.classes AS original_ability_classes " .
         "FROM aa_custom_mapping acm " .
         "JOIN aa_ability ua ON ua.id = acm.universal_aa_id " .
         "JOIN aa_ability oa ON oa.id = acm.original_aa_id " .
@@ -697,7 +711,7 @@ sub HandleTrainRequest {
 
     my $player_class = $client->GetClass();
     my $player_bitmask = 1 << ($player_class - 1);
-    my $has_native = ($aa->{original_classes} & $player_bitmask) ? 1 : 0;
+    my $has_native = _has_native_access($aa, $player_bitmask);
 
     my $tier = $aa->{tier};
     my $tier_name = $TIER_NAMES{$tier};

@@ -20,10 +20,12 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include "common/eq_packet_structs.h"
 #include "common/events/player_event_logs.h"
+#include "common/inventory_profile.h"
 #include "common/misc_functions.h"
 #include "common/patches/patches.h"
 #include "common/profanity_manager.h"
 #include "common/repositories/guild_tributes_repository.h"
+#include "common/repositories/inventory_repository.h"
 #include "common/rulesys.h"
 #include "common/say_link.h"
 #include "common/server_reload_types.h"
@@ -3796,6 +3798,65 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet &p)
 			TraderRepository::UpdateActiveTransaction(database, in->id, false);
 
 			auto item = trader_pc->FindTraderItemBySerialNumber(item_sn);
+			if (!item) {
+				auto inventory_items = InventoryRepository::GetWhere(
+					database,
+					fmt::format(
+						"`character_id` = {} AND `guid` = {} LIMIT 1",
+						in->trader_buy_struct.trader_id,
+						item_sn
+					)
+				);
+				uint32 reconciled_inventory_rows = 0;
+
+				if (!inventory_items.empty()) {
+					auto inventory_item = inventory_items.front();
+					const auto item_data = database.GetItem(inventory_item.item_id);
+					if (item_data && item_data->Stackable && inventory_item.charges > in->trader_buy_struct.quantity) {
+						inventory_item.charges -= in->trader_buy_struct.quantity;
+						reconciled_inventory_rows += InventoryRepository::ReplaceOne(database, inventory_item);
+					}
+					else {
+						reconciled_inventory_rows += InventoryRepository::DeleteWhere(
+							database,
+							fmt::format(
+								"`character_id` = {} AND `guid` = {}",
+								in->trader_buy_struct.trader_id,
+								item_sn
+							)
+						);
+
+						for (uint8 bag_slot = EQ::invbag::SLOT_BEGIN; bag_slot <= EQ::invbag::SLOT_END; ++bag_slot) {
+							const auto container_slot = EQ::InventoryProfile::CalcSlotId(inventory_item.slot_id, bag_slot);
+							if (container_slot != INVALID_INDEX) {
+								reconciled_inventory_rows += InventoryRepository::DeleteWhere(
+									database,
+									fmt::format(
+										"`character_id` = {} AND `slot_id` = {}",
+										in->trader_buy_struct.trader_id,
+										container_slot
+									)
+								);
+							}
+						}
+					}
+				}
+
+				if (reconciled_inventory_rows) {
+					trader_pc->RemoveItemBySerialNumber(item_sn, in->trader_buy_struct.quantity);
+					trader_pc->AddMoneyToPP(in->trader_buy_struct.price * in->trader_buy_struct.quantity, true);
+				}
+
+				LogTrading(
+					"ServerOP_BazaarPurchase: Trader char_id <red>[{}] did not have item serial <red>[{}]. "
+					"Deleting stale trader listing; persisted inventory reconcile affected [{}] row(s).",
+					in->trader_buy_struct.trader_id,
+					in->trader_buy_struct.serial_number,
+					reconciled_inventory_rows
+				);
+				TraderRepository::DeleteOne(database, in->id);
+				break;
+			}
 
 			if (item && PlayerEventLogs::Instance()->IsEventEnabled(PlayerEvent::TRADER_SELL)) {
 				auto e = PlayerEvent::TraderSellEvent{

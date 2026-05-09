@@ -485,8 +485,8 @@ sub _restore_stats {
     $npc->ModifyNPCStat("dr",      "$orig_dr");
     $npc->ModifyNPCStat("heal_scale", "100");
 
-    # Restore HP to full (original max)
-    $npc->SetHP(int($orig_hp));
+    # Restore to the recalculated max, which can include active NPC buffs.
+    $npc->SetHP($npc->GetMaxHP());
 }
 
 # -----------------------------------------------------------------------------
@@ -716,7 +716,7 @@ sub _apply_scaling {
     # HP
     my $new_hp = max(1, int($orig_hp * $mults->{hp}));
     $npc->ModifyNPCStat("max_hp", "$new_hp");
-    $npc->SetHP($new_hp);
+    $npc->SetHP($npc->GetMaxHP());
 
     # Melee damage — apply percentage then enforce level-based floors
     # Floors scale with composition score: fragile solos get softer floors

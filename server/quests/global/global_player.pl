@@ -27,11 +27,11 @@ sub EVENT_ENTERZONE { #message only appears in Cities / Pok and wherever the Way
   # Auto-reapply Ascendant Auras on zone
   ApplyAscendantAuras();
 
-  # The Tomeless — visual aura on zone-in
-  if (quest::get_data("tomeless_" . $client->CharacterID())) {
-    $client->SendAppearanceEffectActor(19, 6, 20, 6, 21, 6, 96, 6, 211, 6);
-    $client->SendAppearanceEffectActor(19, 5, 20, 5, 21, 5, 96, 5, 211, 5);
-  }
+  # The Tomeless — visual aura on zone-in (disabled: investigating client crash on guild lobby cold-load)
+  #if (quest::get_data("tomeless_" . $client->CharacterID())) {
+  #  $client->SendAppearanceEffectActor(19, 6, 20, 6, 21, 6, 96, 6, 211, 6);
+  #  $client->SendAppearanceEffectActor(19, 5, 20, 5, 21, 5, 96, 5, 211, 5);
+  #}
 
   # April Fools size pranks
   plugin::AprilFools_OnZoneIn($client);
@@ -126,7 +126,7 @@ sub EVENT_COMBINE_SUCCESS {
         quest::we(15, "$name has obtained $item_link! Congratulations, $name!");
 
         my $first_key = "first_epic_class_" . $client->GetClass();
-        unless (quest::get_data($first_key)) {
+        unless (quest::get_data($first_key) || $client->GetGM()) {
             quest::set_data($first_key, $name);
             quest::enabletitle(406);
             quest::we(15, "A historic moment! $name is the FIRST " . $client->GetClassName() . " to obtain their class epic on this server! A title of legend has been bestowed!");
@@ -749,7 +749,7 @@ sub EVENT_LEVEL_UP {
     our ($ulevel, $name);
     if ($ulevel == 60) {
         my $first_key = "first_level60_class_" . $client->GetClass();
-        unless (quest::get_data($first_key)) {
+        unless (quest::get_data($first_key) || $client->GetGM()) {
             quest::set_data($first_key, $name);
             quest::we(15, "SERVER FIRST! " . $name . " is the FIRST " . $client->GetClassName() . " to reach level 60 on this server!");
         }

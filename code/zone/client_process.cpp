@@ -560,6 +560,7 @@ bool Client::Process() {
 
 	if (client_state == CLIENT_KICKED) {
 		Save();
+		LeaveGroup();
 		OnDisconnect(true);
 		std::cout << "Client disconnected (cs=k): " << GetName() << std::endl;
 		return false;
@@ -581,11 +582,11 @@ bool Client::Process() {
 	}
 
 	if (client_state != CLIENT_LINKDEAD && !eqs->CheckState(ESTABLISHED)) {
-		OnDisconnect(true);
 		LogInfo("Client linkdead: {}", name);
 
 		if (Admin() > AccountStatus::GMAdmin) {
 			LeaveGroup();
+			OnDisconnect(true);
 			if (GetMerc()) {
 				GetMerc()->Save();
 				GetMerc()->Depop();
@@ -597,7 +598,10 @@ bool Client::Process() {
 
 			return false;
 		}
-		else if (!linkdead_timer.Enabled()) {
+
+		OnDisconnect(true);
+
+		if (!linkdead_timer.Enabled()) {
 			linkdead_timer.Start(RuleI(Zone, ClientLinkdeadMS));
 			client_state = CLIENT_LINKDEAD;
 			AI_Start(CLIENT_LD_TIMEOUT);

@@ -190,14 +190,56 @@ my %expedition_zones = (
         has_raid_tier => 1
     },
 
-    # ---- Luclin+ ----
+    # ---- Luclin ----
     'ssratemple' => {
         zone_version => 0,
-        default_name => 'Ssraeshza Temple'
+        default_name => 'Ssraeshza Temple',
+        has_raid_tier => 1
     },
     'vexthal' => {
         zone_version => 0,
-        default_name => 'Vex Thal'
+        default_name => 'Vex Thal',
+        has_raid_tier => 1
+    },
+    'acrylia' => {
+        zone_version => 0,
+        default_name => 'Acrylia Caverns',
+        has_raid_tier => 1
+    },
+    'akheva' => {
+        zone_version => 0,
+        default_name => 'Akheva Ruins',
+        has_raid_tier => 1
+    },
+    'griegsend' => {
+        zone_version => 1,
+        default_name => "Grieg's End",
+        has_raid_tier => 1
+    },
+    'thedeep' => {
+        zone_version => 0,
+        default_name => 'The Deep',
+        has_raid_tier => 1
+    },
+    'sseru' => {
+        zone_version => 0,
+        default_name => 'Sanctus Seru',
+        has_raid_tier => 1
+    },
+    'katta' => {
+        zone_version => 0,
+        default_name => 'Katta Castellum',
+        has_raid_tier => 1
+    },
+    'umbral' => {
+        zone_version => 0,
+        default_name => 'Umbral Plains',
+        has_raid_tier => 1
+    },
+    'maiden' => {
+        zone_version => 0,
+        default_name => "Maiden's Eye",
+        has_raid_tier => 1
     },
     'anguish' => {
         zone_version => 0,

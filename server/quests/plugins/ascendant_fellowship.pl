@@ -306,7 +306,7 @@ sub Fellowship_ScaleMob {
     my $new_ac      = int($ac * $mult);
 
     $npc->ModifyNPCStat('max_hp',  "$new_hp");
-    $npc->SetHP($new_hp);
+    $npc->SetHP($npc->GetMaxHP());
     $npc->ModifyNPCStat('min_hit', "$new_min_hit");
     $npc->ModifyNPCStat('max_hit', "$new_max_hit");
     $npc->ModifyNPCStat('ac',      "$new_ac");

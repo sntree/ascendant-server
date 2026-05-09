@@ -1,4 +1,9 @@
 function event_say(e)
+	if e.message:findi("activate") and e.other:Admin() >= 40 then
+		e.self:Say("Portal override acknowledged. Activating in 30 seconds.");
+		eq.signal(152019, 999);
+		return;
+	end
 	if e.message:findi("hail") then
 		e.self:Say("Greetings, " .. e.other:GetName() .. ". I am Kendal Groetan. I am here to assist and watch over those who wish to return to the continent of Odus.  A voice will shout throughout the zone informing you of when the [teleports] will become active. When you are told, proceed onto the pad and await teleportation.");
     elseif e.message:findi("teleports") then

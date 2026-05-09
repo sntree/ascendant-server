@@ -6523,6 +6523,7 @@ int64 Mob::GetFocusEffect(focusType type, uint16 spell_id, Mob *caster, bool fro
 	if (IsBardSong(spell_id) &&
 		type != focusFcBaseEffects &&
 		type != focusSpellDuration &&
+		type != focusSpellDurByTic &&
 		type != focusReduceRecastTime &&
 		type != focusImprovedDamage &&
 		type != focusImprovedDamage2 &&

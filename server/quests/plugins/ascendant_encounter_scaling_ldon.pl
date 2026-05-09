@@ -375,7 +375,7 @@ sub _ldon_restore_stats {
     $npc->ModifyNPCStat("pr",      "$orig_pr");
     $npc->ModifyNPCStat("dr",      "$orig_dr");
     $npc->ModifyNPCStat("heal_scale", "100");
-    $npc->SetHP(int($orig_hp));
+    $npc->SetHP($npc->GetMaxHP());
 }
 
 sub _ldon_count_participants {
@@ -515,7 +515,7 @@ sub _ldon_apply_scaling {
     # HP
     my $new_hp = max(1, int($orig_hp * $mults->{hp}));
     $npc->ModifyNPCStat("max_hp", "$new_hp");
-    $npc->SetHP($new_hp);
+    $npc->SetHP($npc->GetMaxHP());
 
     # Melee damage with level-based floors
     my $level = $npc->GetLevel();

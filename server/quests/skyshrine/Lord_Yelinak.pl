@@ -53,7 +53,7 @@ sub EVENT_KILLED_MERIT {
 	quest::set_data("velious_yelinak_" . $account_id, $char_name);
 
 	my $first_key = "first_kill_yelinak";
-	unless (quest::get_data($first_key)) {
+	unless (quest::get_data($first_key) || $client->GetGM()) {
 		quest::set_data($first_key, $char_name . "|" . $uguild);
 		quest::we(15, "SERVER FIRST! " . $char_name . " <" . $uguild . "> and their group have slain Lord Yelinak for the first time on this server!");
 	}

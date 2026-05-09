@@ -38,3 +38,7 @@ server/talkeq-linux
 Thumbs.db
 *.swp
 *.tmp
+# Core dumps
+core.*
+**/core.*
+server/core.*

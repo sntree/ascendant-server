@@ -22,7 +22,7 @@ function event_timer(e)
 	elseif e.timer == "nkar1min" then
 		eq.stop_timer("nkar1min");
 		e.self:Say("The portal to Luclin is about to become active. Please stand inside the circle of Spires and have a shard upon your person.");
-		eq.set_global("nexus","1",3,"S60"); -- when the portal is open, global is set true for 1 min.
+		eq.set_global("nexus_nk","1",3,"S60"); -- when the portal is open, global is set true for 1 min.
 		eq.set_timer("nkar15min",10 * 60 *1000);
 		-- eq.signal(13022,101); -- triggers the flavor
 	end

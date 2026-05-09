@@ -203,7 +203,7 @@ public:
 		Trader     e{};
 		const auto trader_item = GetWhere(
 			db,
-			fmt::format("`char_id` = '{}' AND `item_sn` = '{}' LIMIT 1", trader_id, serial_number)
+			fmt::format("`char_id` = '{}' AND `item_sn` = '{}' AND `active_transaction` = 0 LIMIT 1", trader_id, serial_number)
 		);
 
 		if (trader_item.empty()) {
@@ -219,7 +219,7 @@ public:
 		auto       sn          = Strings::ToUnsignedBigInt(serial_number);
 		const auto trader_item = GetWhere(
 			db,
-			fmt::format("`char_id` = '{}' AND `item_sn` = '{}' LIMIT 1", trader_id, sn)
+			fmt::format("`char_id` = '{}' AND `item_sn` = '{}' AND `active_transaction` = 0 LIMIT 1", trader_id, sn)
 		);
 
 		if (trader_item.empty()) {
@@ -237,7 +237,6 @@ public:
 		}
 
 		e.active_transaction = status == true ? 1 : 0;
-		e.listing_date       = time(nullptr);
 
 		return UpdateOne(db, e);
 	}
