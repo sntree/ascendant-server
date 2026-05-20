@@ -1194,6 +1194,36 @@ RULE_REAL(Ascendant, PetHPScalar, 1.5,
 	"[Ascendant] Multiplier on summoned pet base HP at spawn. 1.0 = no change, 1.5 = +50%. Applied in MakePoweredPet before AA bonuses.")
 RULE_REAL(Ascendant, PetACScalar, 1.5,
 	"[Ascendant] Multiplier on summoned pet base AC at spawn. 1.0 = no change. Applied in MakePoweredPet.")
+RULE_BOOL(Ascendant, PetIgnoreEnrage, true,
+	"[Ascendant:Pet] If true, pets and temporary pets are never affected by enrage forced ripostes.")
+RULE_BOOL(Ascendant, PetRequireHateTopForRampage, true,
+	"[Ascendant:Pet] If true, rampage skips pets and temporary pets unless they are first on the attacker's hate list.")
+RULE_BOOL(Ascendant, PetRequireHateTopForAERampage, true,
+	"[Ascendant:Pet] If true, area/wild rampage skips pets and temporary pets unless they are first on the attacker's hate list.")
+RULE_INT(Ascendant, PetNonHateTopAESpellDamagePercent, 50,
+	"[Ascendant:Pet] Percent of AE spell damage pets and temporary pets take when they are not first on the caster's hate list. 100 = no reduction, 50 = half damage, 0 = immune.")
+RULE_BOOL(Ascendant, PetAffinityIncludesCharmedPets, true,
+	"[Ascendant:Pet] If true, Pet Affinity group and raid buff sharing includes charmed pets.")
+RULE_INT(Ascendant, MagePetMeleeLifetapPct, 35,
+	"[Ascendant:Pet] Percent of successful melee damage healed by real client-owned magician pets. 0 = disabled.")
+RULE_BOOL(Ascendant, PetHeroicScalingEnabled, true,
+	"[Ascendant:Pet] Enable heroic-stat scaling bonuses for real client-owned summoned pets.")
+RULE_BOOL(Ascendant, PetHeroicScalingIncludeResists, true,
+	"[Ascendant:Pet] Include heroic MR/FR/CR/PR/DR/Corruption in summoned pet owner heroic total.")
+RULE_REAL(Ascendant, PetHeroicAccuracyPerHeroic, 0.12,
+	"[Ascendant:Pet] Accuracy added to real summoned pets per owner heroic total.")
+RULE_REAL(Ascendant, PetHeroicATKPerHeroic, 0.12,
+	"[Ascendant:Pet] ATK added to real summoned pets per owner heroic total.")
+RULE_REAL(Ascendant, PetHeroicAvoidancePerHeroic, 0.04,
+	"[Ascendant:Pet] Avoidance added to real summoned pets per owner heroic total.")
+RULE_REAL(Ascendant, PetHeroicMitigationPerHeroic, 0.018,
+	"[Ascendant:Pet] Percent melee/spell damage mitigation added to real summoned pets per owner heroic total.")
+RULE_INT(Ascendant, PetHeroicMitigationCap, 18,
+	"[Ascendant:Pet] Maximum percent melee/spell damage mitigation from heroic pet scaling.")
+RULE_REAL(Ascendant, PetHeroicFocusMultiplier, 0.015,
+	"[Ascendant:Pet] Pet focus multiplier per pet power for non-magician pet heroic scaling.")
+RULE_REAL(Ascendant, PetHeroicMageFocusMultiplier, 0.02,
+	"[Ascendant:Pet] Pet focus multiplier per pet power for magician pet heroic scaling.")
 // --- Cast time cap ---
 RULE_INT(Ascendant, CapSpellCastTimeMS, 3010,
 	"[Ascendant] Cap all player spell cast times to this value in ms after focus reductions. 0 = disabled. 3010 = 3.01s cap.")
@@ -1255,6 +1285,10 @@ RULE_INT(Ascendant, HateSummonHPRatio, 90,
 // --- Silence duration cap ---
 RULE_INT(Ascendant, MaxSilenceDurationForPlayerCharacter, 2,
 	"[Ascendant] Maximum number of tics a player can be silenced. 1 tic equals 6 seconds. 0 = no cap (vanilla behavior).")
+RULE_INT(Ascendant, NPCSpellStunGracePeriodMS, 9000,
+	"[Ascendant] Milliseconds after an NPC spell stun ends before another NPC spell stun can affect player-style targets. Timer begins when the stun lands and includes the stun duration. 0 = disabled.")
+RULE_INT(Ascendant, NPCSpellSilenceGracePeriodMS, 14000,
+	"[Ascendant] Milliseconds after an NPC spell silence ends before another NPC spell silence can affect player-style targets. Timer begins when silence lands and includes the silence duration. 0 = disabled.")
 // --- Dispel protections ---
 RULE_BOOL(Ascendant, DispelProtectSelfBuffs, true,
 	"[Ascendant] If true, NPC dispels will skip buffs where the caster is the target itself (protects self-buffs and AA-granted buffs).")

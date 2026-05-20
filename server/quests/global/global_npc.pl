@@ -603,6 +603,16 @@ sub EVENT_CHARM_START {
     quest::debug("PetBag: Stored original loot for charmed NPC: $loot_string");
   }
 
+  # Enable after deploying a zone binary with $npc->ClearEquippedItems() support.
+  # Charm ownership is established before EVENT_CHARM_START fires, so this equips
+  # the owner's pet bag onto charmed pets the same way summoned pets are equipped.
+  # my $owner = undef;
+  # my $owner_id = $npc->GetOwnerID();
+  # $owner = $entity_list->GetClientByID($owner_id) if $owner_id;
+  # if ($owner && $owner->IsClient()) {
+  #   plugin::EquipPetFromBag($npc, $owner);
+  # }
+
   # Apply active Ascendant Auras to the newly charmed mob
   my %auras = (
     ascendant_aura_speed_expires   => 25543,
@@ -638,6 +648,10 @@ sub EVENT_CHARM_END {
     quest::debug("PetBag: Retrieved original loot: $original_loot_string");
   }
   
+  # Enable after deploying a zone binary with $npc->ClearEquippedItems() support.
+  # This removes pet-bag equipped items before restoring the NPC's natural loot.
+  # $npc->ClearEquippedItems();
+
   # Aggressively clear ALL loot - loop until nothing remains
   my $safety = 0;
   while ($safety < 100) {

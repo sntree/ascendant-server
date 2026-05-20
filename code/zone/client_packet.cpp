@@ -45,6 +45,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include "zone/guild_mgr.h"
 #include "zone/merc.h"
 #include "zone/mob_movement_manager.h"
+#include "zone/npc.h"
 #include "zone/petitions.h"
 #include "zone/queryserv.h"
 #include "zone/quest_parser_collection.h"
@@ -72,6 +73,67 @@ typedef void (Client::*ClientPacketProc)(const EQApplicationPacket *app);
 std::map<uint32, ClientPacketProc> ConnectingOpcodes;
 //Use a static array for connected, for speed
 ClientPacketProc ConnectedOpcodes[_maxEmuOpcode];
+
+static bool CommandOwnedTempPetsToAttack(Client *owner, Mob *target, bool check_z_range, bool retarget)
+{
+	if (!owner || !target || target == owner) {
+		return false;
+	}
+
+	const float attack_range = RuleR(Pets, AttackCommandRange) * RuleR(Pets, AttackCommandRange);
+	const float owner_distance = check_z_range ?
+		DistanceSquared(owner->GetPosition(), target->GetPosition()) :
+		DistanceSquaredNoZ(owner->GetPosition(), target->GetPosition());
+
+	if (owner_distance > attack_range) {
+		return false;
+	}
+
+	bool commanded = false;
+
+	for (const auto &mob_entry : entity_list.GetMobList()) {
+		Mob *mob = mob_entry.second;
+		if (!mob || !mob->IsNPC()) {
+			continue;
+		}
+
+		NPC *temp_pet = mob->CastToNPC();
+		auto swarm_info = temp_pet->GetSwarmInfo();
+		if (!swarm_info || swarm_info->owner_id != owner->GetID()) {
+			continue;
+		}
+
+		if (temp_pet->IsFeared() || !temp_pet->IsAttackAllowed(target)) {
+			continue;
+		}
+
+		temp_pet->SetFeigned(false);
+
+		if (!commanded) {
+			zone->AddAggroMob();
+		}
+
+		int hate = 1;
+		if (retarget && temp_pet->IsEngaged()) {
+			auto top = temp_pet->GetHateMost();
+			if (top && top != target) {
+				hate += temp_pet->GetHateAmount(top) - temp_pet->GetHateAmount(target) + 100;
+			}
+		}
+
+		temp_pet->AddToHateList(target, hate, 0, true, false, false, SPELL_UNKNOWN, true);
+		temp_pet->SetTarget(target);
+
+		if (swarm_info->target || temp_pet->GetPetTargetLockID()) {
+			swarm_info->target = target->GetID();
+			temp_pet->SetPetTargetLockID(target->GetID());
+		}
+
+		commanded = true;
+	}
+
+	return commanded;
+}
 
 void MapOpcodes()
 {
@@ -11144,9 +11206,21 @@ void Client::Handle_OP_PetCommands(const EQApplicationPacket *app)
 	PetCommand_Struct* pet = (PetCommand_Struct*)app->pBuffer;
 	Mob* mypet = GetPet();
 	Mob *target = entity_list.GetMob(pet->target);
+	uint32 PetCommand = pet->command;
 
-	if (!mypet || pet->command == PET_LEADER) {
-		if (pet->command == PET_LEADER) {
+	if (!mypet || PetCommand == PET_LEADER) {
+		if (!mypet && (PetCommand == PET_ATTACK || PetCommand == PET_QATTACK)) {
+			Mob *attack_target = target ? target : GetTarget();
+			if (
+				attack_target &&
+				(!RuleB(Pets, PetsRequireLoS) || DoLosChecks(attack_target)) &&
+				!attack_target->IsMezzed()
+			) {
+				CommandOwnedTempPetsToAttack(this, attack_target, PetCommand == PET_ATTACK, PetCommand == PET_ATTACK);
+			}
+		}
+
+		if (PetCommand == PET_LEADER) {
 			// we either send the ID of an NPC we're interested in or no ID for our own pet
 			if (target) {
 				auto owner = target->GetOwner();
@@ -11169,8 +11243,6 @@ void Client::Handle_OP_PetCommands(const EQApplicationPacket *app)
 	if (mypet->GetPetType() == petFamiliar && pet->command != PET_GETLOST)
 		return;
 
-	uint32 PetCommand = pet->command;
-
 	// Handle Sit/Stand toggle in UF and later.
 	/*
 	if (GetClientVersion() >= EQClientUnderfoot)
@@ -11184,6 +11256,8 @@ void Client::Handle_OP_PetCommands(const EQApplicationPacket *app)
 	switch (PetCommand)
 	{
 	case PET_ATTACK: {
+		target = target ? target : GetTarget();
+
 		if (!target)
 			break;
 
@@ -11204,6 +11278,8 @@ void Client::Handle_OP_PetCommands(const EQApplicationPacket *app)
 			mypet->SayString(this, NOT_LEGAL_TARGET);
 			break;
 		}
+
+		CommandOwnedTempPetsToAttack(this, target, true, true);
 
 		// default range is 200, takes Z into account
 		// really they do something weird where they're added to the aggro list then remove them
@@ -11294,6 +11370,7 @@ void Client::Handle_OP_PetCommands(const EQApplicationPacket *app)
 				MessageString(Chat::PetResponse, PET_ATTACKING, mypet->GetCleanName(), GetTarget()->GetCleanName());
 			}
 		}
+		CommandOwnedTempPetsToAttack(this, GetTarget(), false, false);
 		break;
 	}
 	case PET_BACKOFF: {

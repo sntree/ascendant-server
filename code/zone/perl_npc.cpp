@@ -90,6 +90,11 @@ void Perl_NPC_ClearLootItems(NPC* self) // @categories Inventory and Items
 	self->ClearLootItems();
 }
 
+void Perl_NPC_ClearEquippedItems(NPC* self) // @categories Inventory and Items
+{
+	self->ClearEquippedItems();
+}
+
 void Perl_NPC_AddLootCash(NPC* self, uint32 copper, uint32 silver, uint32 gold, uint32 platinum) // @categories Currency and Points
 {
 	self->AddLootCash(copper, silver, gold, platinum);
@@ -544,6 +549,11 @@ void Perl_NPC_AddMeleeProc(NPC* self, uint16_t spell_id, uint16_t chance) // @ca
 	self->AddProcToWeapon(spell_id, true, chance);
 }
 
+void Perl_NPC_AddMeleeProc(NPC* self, uint16_t spell_id, uint16_t chance, uint32_t proc_reuse_time) // @categories Script Utility
+{
+	self->AddProcToWeapon(spell_id, true, chance, spell_id, -1, proc_reuse_time);
+}
+
 void Perl_NPC_AddRangedProc(NPC* self, uint16_t spell_id, uint16_t chance) // @categories Script Utility
 {
 	self->AddRangedProc(spell_id, chance);
@@ -919,13 +929,15 @@ void perl_register_npc()
 	package.add("AddItem", (void(*)(NPC*, uint32, uint16, bool, uint32, uint32, uint32, uint32, uint32, uint32))&Perl_NPC_AddItem);
 	package.add("AddLootTable", (void(*)(NPC*))&Perl_NPC_AddLootTable);
 	package.add("AddLootTable", (void(*)(NPC*, uint32))&Perl_NPC_AddLootTable);
-	package.add("AddMeleeProc", &Perl_NPC_AddMeleeProc);
+	package.add("AddMeleeProc", (void(*)(NPC*, uint16_t, uint16_t))&Perl_NPC_AddMeleeProc);
+	package.add("AddMeleeProc", (void(*)(NPC*, uint16_t, uint16_t, uint32_t))&Perl_NPC_AddMeleeProc);
 	package.add("AddRangedProc", &Perl_NPC_AddRangedProc);
 	package.add("AssignWaypoints", &Perl_NPC_AssignWaypoints);
 	package.add("CalculateNewWaypoint", &Perl_NPC_CalculateNewWaypoint);
 	package.add("ChangeLastName", &Perl_NPC_ChangeLastName);
 	package.add("CheckNPCFactionAlly", &Perl_NPC_CheckNPCFactionAlly);
 	package.add("CheckHandin", &Perl_NPC_CheckHandin);
+	package.add("ClearEquippedItems", &Perl_NPC_ClearEquippedItems);
 	package.add("ClearItemList", &Perl_NPC_ClearLootItems);
 	package.add("ClearLastName", &Perl_NPC_ClearLastName);
 	package.add("CountItem", &Perl_NPC_CountItem);

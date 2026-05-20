@@ -829,7 +829,8 @@ void Group::CastGroupSpell(Mob* caster, uint16 spell_id) {
 		if(members[z] == caster) {
 			caster->SpellOnTarget(spell_id, caster);
 #ifdef GROUP_BUFF_PETS
-			if(spells[spell_id].target_type != ST_GroupNoPets && caster->GetPet() && caster->HasPetAffinity() && !caster->GetPet()->IsCharmed())
+			if(spells[spell_id].target_type != ST_GroupNoPets && caster->GetPet() && caster->HasPetAffinity() &&
+				(!caster->GetPet()->IsCharmed() || RuleB(Ascendant, PetAffinityIncludesCharmedPets)))
 				caster->SpellOnTarget(spell_id, caster->GetPet());
 #endif
 		}
@@ -840,7 +841,8 @@ void Group::CastGroupSpell(Mob* caster, uint16 spell_id) {
 				members[z]->CalcSpellPowerDistanceMod(spell_id, distance);
 				caster->SpellOnTarget(spell_id, members[z]);
 #ifdef GROUP_BUFF_PETS
-				if(spells[spell_id].target_type != ST_GroupNoPets && members[z]->GetPet() && members[z]->HasPetAffinity() && !members[z]->GetPet()->IsCharmed())
+				if(spells[spell_id].target_type != ST_GroupNoPets && members[z]->GetPet() && members[z]->HasPetAffinity() &&
+					(!members[z]->GetPet()->IsCharmed() || RuleB(Ascendant, PetAffinityIncludesCharmedPets)))
 					caster->SpellOnTarget(spell_id, members[z]->GetPet());
 #endif
 			} else

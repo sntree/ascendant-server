@@ -1,5 +1,17 @@
 my $inst;
 
+sub _aten_key {
+  return "vt_aten_0" unless $inst > 0;
+
+  my $dz = quest::get_expedition();
+  if ($dz) {
+    my $uuid = $dz->GetUUID();
+    return "vt_aten_dz_$uuid" if $uuid ne "";
+  }
+
+  return "vt_aten_inst_$inst";
+}
+
 sub EVENT_SPAWN {
      $inst = $instanceid || 0;
      quest::settimer("depop",172800);
@@ -27,10 +39,10 @@ sub EVENT_KILLED_MERIT {
 
 sub EVENT_DEATH_COMPLETE {
   if ($inst > 0) {
-    quest::set_data("vt_aten_$inst", "1"); #Permanent - no respawn in instances
+    quest::set_data(_aten_key(), "1", "D1");
   } else {
     my $variance = int(rand(720));
     my $spawntime = 6480 + $variance;
-    quest::set_data("vt_aten_$inst", "1", "M$spawntime");
+    quest::set_data(_aten_key(), "1", "M$spawntime");
   }
 }

@@ -3072,6 +3072,13 @@ void ZoneDatabase::SavePetInfo(Client *client)
 {
 	PetInfo* p = nullptr;
 
+	const auto has_pet_bag = QueryDatabase(
+		fmt::format(
+			"SELECT 1 FROM `inventory` WHERE `character_id` = {} AND `item_id` IN (93861, 2828) LIMIT 1",
+			client->CharacterID()
+		)
+	).RowCount() > 0;
+
 	std::vector<CharacterPetInfoRepository::CharacterPetInfo> pet_infos;
 	auto pet_info = CharacterPetInfoRepository::NewEntity();
 
@@ -3132,6 +3139,10 @@ void ZoneDatabase::SavePetInfo(Client *client)
 			pet_buff.instrument_mod = p->Buffs[slot_id].bard_modifier;
 
 			pet_buffs.push_back(pet_buff);
+		}
+
+		if (has_pet_bag) {
+			continue;
 		}
 
 		uint32 pet_inventory_count = 0;
@@ -3313,6 +3324,17 @@ void ZoneDatabase::LoadPetInfo(Client *client)
 			p->Buffs[e.slot].counters      = e.counters;
 			p->Buffs[e.slot].bard_modifier = e.instrument_mod;
 		}
+	}
+
+	const auto has_pet_bag = QueryDatabase(
+		fmt::format(
+			"SELECT 1 FROM `inventory` WHERE `character_id` = {} AND `item_id` IN (93861, 2828) LIMIT 1",
+			client->CharacterID()
+		)
+	).RowCount() > 0;
+
+	if (has_pet_bag) {
+		return;
 	}
 
 	const auto& inventory = CharacterPetInventoryRepository::GetWhere(

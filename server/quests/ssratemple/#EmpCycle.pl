@@ -6,8 +6,20 @@ my $EmpPrepTime = 150; #Seconds before Emp becomes targetable after killing Bloo
 my $EmpPrep;
 my $inst;
 
-sub _emp_key   { return "ssra_emp_$inst"; }
-sub _blood_key { return "ssra_bloodcd_$inst"; }
+sub _ssra_state_id {
+  return "0" unless $inst > 0;
+
+  my $dz = quest::get_expedition();
+  if ($dz) {
+    my $uuid = $dz->GetUUID();
+    return "dz_$uuid" if $uuid ne "";
+  }
+
+  return "inst_$inst";
+}
+
+sub _emp_key   { return "ssra_emp_" . _ssra_state_id(); }
+sub _blood_key { return "ssra_bloodcd_" . _ssra_state_id(); }
 
 sub EVENT_SPAWN {
   $EmpPrep = 0;
@@ -20,7 +32,11 @@ sub EVENT_TIMER {
     my $emp_state  = quest::get_data(_emp_key());
     my $blood_cd   = quest::get_data(_blood_key());
     if ($emp_state eq "" && $blood_cd eq "") { #Emperor is ready to spawn
-      quest::set_data(_emp_key(), "1"); #Normal Cycle Start
+      if ($inst > 0) {
+        quest::set_data(_emp_key(), "1", "D1"); #Normal Cycle Start
+      } else {
+        quest::set_data(_emp_key(), "1"); #Normal Cycle Start
+      }
       $emp_state = "1";
     }
     if (($emp_state eq "1") && !$entity_list->GetNPCByNPCTypeID(162065)) {
@@ -36,7 +52,11 @@ sub EVENT_TIMER {
     quest::stoptimer("EmpPrep");
     quest::depop(162065); ##Emperor_Ssraeshza (No Target)
     quest::unique_spawn(162227,0,0,990.0,-325.0,415.0,384); ##Emperor_Ssraeshza_ (Real)
-    quest::set_data(_emp_key(), "2");
+    if ($inst > 0) {
+      quest::set_data(_emp_key(), "2", "D1");
+    } else {
+      quest::set_data(_emp_key(), "2");
+    }
     quest::set_data(_blood_key(), "1", "M$BloodCoolDownTime"); #Cooldown timer
     $EmpPrep = 0;
   }
@@ -49,7 +69,7 @@ sub EVENT_SIGNAL {
   }
   if ($signal == 2) { #Emperor is dead
     if ($inst > 0) {
-      quest::set_data(_emp_key(), "3"); #Permanent - no respawn in instances
+      quest::set_data(_emp_key(), "3", "D1"); #24 hours - expires with DZ
       quest::stoptimer("EmpCycle");
     } else {
       quest::set_data(_emp_key(), "3", "M$EmpRepopTime"); #Emp respawn timer

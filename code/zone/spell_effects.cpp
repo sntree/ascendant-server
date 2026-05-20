@@ -39,6 +39,26 @@ extern Zone* zone;
 extern volatile bool is_zone_loaded;
 extern WorldServer worldserver;
 
+namespace {
+bool IsNPCSpellGraceProtectedTarget(Mob *mob)
+{
+	if (!mob) {
+		return false;
+	}
+
+	if (mob->IsOfClientBot()) {
+		return true;
+	}
+
+	if ((mob->IsPet() || mob->IsTempPet()) && mob->IsPetOwnerOfClientBot()) {
+		return true;
+	}
+
+	Mob *owner = mob->GetOwner();
+	return owner && owner->IsOfClientBot() && (mob->IsPet() || mob->IsTempPet());
+}
+}
+
 
 // the spell can still fail here, if the buff can't stack
 // in this case false will be returned, true otherwise
@@ -55,6 +75,19 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, float partial, int level_ove
 		return false;
 
 	const SPDat_Spell_Struct &spell = spells[spell_id];
+
+	if (
+		caster &&
+		caster->IsNPC() &&
+		IsNPCSpellGraceProtectedTarget(this) &&
+		RuleI(Ascendant, NPCSpellSilenceGracePeriodMS) > 0 &&
+		IsEffectInSpell(spell_id, SpellEffect::Silence) &&
+		npc_spell_silence_grace_timer.Enabled() &&
+		npc_spell_silence_grace_timer.GetRemainingTime() > 0
+	) {
+		LogCombat("NPC spell silence grace prevented silence buff refresh from spell [{}]", spell_id);
+		return false;
+	}
 
 	if (spell.disallow_sit && IsBuffSpell(spell_id) && IsClient() && (CastToClient()->IsSitting() || CastToClient()->GetHorseId() != 0))
 		return false;
@@ -761,7 +794,25 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, float partial, int level_ove
 							effect_value += effect_value*caster->GetFocusEffect(focusFcStunTimeMod, spell_id)/100;
 						}
 
-						Stun(effect_value);
+						if (
+							caster &&
+							caster->IsNPC() &&
+							IsNPCSpellGraceProtectedTarget(this) &&
+							RuleI(Ascendant, NPCSpellStunGracePeriodMS) > 0 &&
+							npc_spell_stun_grace_timer.Enabled() &&
+							npc_spell_stun_grace_timer.GetRemainingTime() > 0
+						) {
+							LogCombat("NPC spell stun grace prevented stun from spell [{}]", spell_id);
+						}
+						else {
+							Stun(effect_value);
+							if (caster && caster->IsNPC() && IsNPCSpellGraceProtectedTarget(this) && effect_value > 0 && RuleI(Ascendant, NPCSpellStunGracePeriodMS) > 0) {
+								const uint32 grace_duration = static_cast<uint32>(effect_value + RuleI(Ascendant, NPCSpellStunGracePeriodMS));
+								if (!npc_spell_stun_grace_timer.Enabled() || npc_spell_stun_grace_timer.GetRemainingTime() < grace_duration) {
+									npc_spell_stun_grace_timer.Start(grace_duration);
+								}
+							}
+						}
 					} else {
 						if (IsClient())
 							MessageString(Chat::Stun, SHAKE_OFF_STUN);
@@ -1574,10 +1625,28 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, float partial, int level_ove
 				{
 					// the spinning is handled by the client
 					// Stun duration is based on the effect_value, not the buff duration(alot don't have buffs)
-					Stun(effect_value);
-					if(!IsClient()) {
-						Spin();
-						spun_timer.Start(100); // spins alittle every 100 ms
+					if (
+						caster &&
+						caster->IsNPC() &&
+						IsNPCSpellGraceProtectedTarget(this) &&
+						RuleI(Ascendant, NPCSpellStunGracePeriodMS) > 0 &&
+						npc_spell_stun_grace_timer.Enabled() &&
+						npc_spell_stun_grace_timer.GetRemainingTime() > 0
+					) {
+						LogCombat("NPC spell stun grace prevented spin stun from spell [{}]", spell_id);
+					}
+					else {
+						Stun(effect_value);
+						if (caster && caster->IsNPC() && IsNPCSpellGraceProtectedTarget(this) && effect_value > 0 && RuleI(Ascendant, NPCSpellStunGracePeriodMS) > 0) {
+							const uint32 grace_duration = static_cast<uint32>(effect_value + RuleI(Ascendant, NPCSpellStunGracePeriodMS));
+							if (!npc_spell_stun_grace_timer.Enabled() || npc_spell_stun_grace_timer.GetRemainingTime() < grace_duration) {
+								npc_spell_stun_grace_timer.Start(grace_duration);
+							}
+						}
+						if(!IsClient()) {
+							Spin();
+							spun_timer.Start(100); // spins alittle every 100 ms
+						}
 					}
 				}
 				break;
@@ -2275,7 +2344,26 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, float partial, int level_ove
 						buffs[buffslot].ticsremaining = RuleI(Ascendant, MaxSilenceDurationForPlayerCharacter);
 					}
 				}
-				Silence(true);
+				if (
+					caster &&
+					caster->IsNPC() &&
+					IsNPCSpellGraceProtectedTarget(this) &&
+					RuleI(Ascendant, NPCSpellSilenceGracePeriodMS) > 0 &&
+					npc_spell_silence_grace_timer.Enabled() &&
+					npc_spell_silence_grace_timer.GetRemainingTime() > 0
+				) {
+					LogCombat("NPC spell silence grace prevented silence from spell [{}]", spell_id);
+				}
+				else {
+					Silence(true);
+					if (caster && caster->IsNPC() && IsNPCSpellGraceProtectedTarget(this) && RuleI(Ascendant, NPCSpellSilenceGracePeriodMS) > 0) {
+						const uint32 silence_duration = buffslot > -1 ? static_cast<uint32>(buffs[buffslot].ticsremaining * 6000) : 0;
+						const uint32 grace_duration = silence_duration + RuleI(Ascendant, NPCSpellSilenceGracePeriodMS);
+						if (!npc_spell_silence_grace_timer.Enabled() || npc_spell_silence_grace_timer.GetRemainingTime() < grace_duration) {
+							npc_spell_silence_grace_timer.Start(grace_duration);
+						}
+					}
+				}
 				break;
 			}
 

@@ -2714,7 +2714,8 @@ bool Mob::SpellFinished(uint16 spell_id, Mob *spell_target, CastingSlot slot, in
 						SpellOnTarget(spell_id, this);
 	#ifdef GROUP_BUFF_PETS
 						//pet too
-						if (spells[spell_id].target_type != ST_GroupNoPets && GetPet() && HasPetAffinity() && !GetPet()->IsCharmed()) {
+						if (spells[spell_id].target_type != ST_GroupNoPets && GetPet() && HasPetAffinity() &&
+							(!GetPet()->IsCharmed() || RuleB(Ascendant, PetAffinityIncludesCharmedPets))) {
 							SpellOnTarget(spell_id, GetPet());
 						}
 	#endif
@@ -2723,7 +2724,8 @@ bool Mob::SpellFinished(uint16 spell_id, Mob *spell_target, CastingSlot slot, in
 					SpellOnTarget(spell_id, spell_target);
 	#ifdef GROUP_BUFF_PETS
 					//pet too
-					if (spells[spell_id].target_type != ST_GroupNoPets && spell_target->GetPet() && spell_target->HasPetAffinity() && !spell_target->GetPet()->IsCharmed()) {
+					if (spells[spell_id].target_type != ST_GroupNoPets && spell_target->GetPet() && spell_target->HasPetAffinity() &&
+						(!spell_target->GetPet()->IsCharmed() || RuleB(Ascendant, PetAffinityIncludesCharmedPets))) {
 						SpellOnTarget(spell_id, spell_target->GetPet());
 					}
 	#endif
@@ -6383,6 +6385,11 @@ bool Mob::AddProcToWeapon(uint16 spell_id, bool bPerma, uint16 iChance, uint16 b
 	// Special case for Vampiric Embrace. If this is a Shadow Knight, the proc is different.
 	if (spell_id == SPELL_VAMPIRIC_EMBRACE && GetClass() == Class::ShadowKnight) {
 		spell_id = SPELL_VAMPIRIC_EMBRACE_OF_SHADOW;
+	}
+
+	if (base_spell_id == SPELL_KATTAS_SONG_OF_SWORD_DANCING && GetClass() == Class::Bard) {
+		// Keep Katta's stronger proc rate on bards without boosting transferred buffs on other melee.
+		iChance = 400;
 	}
 
 	int i;

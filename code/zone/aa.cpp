@@ -176,7 +176,22 @@ void Mob::TemporaryPets(uint16 spell_id, Mob *targ, const char *name_override, u
 		if (npc_dup != nullptr)
 			swarm_pet_npc->GiveNPCTypeData(npc_dup);
 
+		bool swarm_pet_command_anchor = IsClient() && !GetPet();
+		if (swarm_pet_command_anchor) {
+			swarm_pet_npc->SetOwnerID(GetID());
+		}
+
 		entity_list.AddNPC(swarm_pet_npc, true, true);
+		if (swarm_pet_command_anchor) {
+			SetPetID(swarm_pet_npc->GetID());
+			swarm_pet_npc->SendPetBuffsToClient();
+			swarm_pet_npc->SendAppearancePacket(AppearanceType::Pet, GetID(), true, true);
+			auto client_owner = CastToClient();
+			client_owner->SetPetCommandState(PetButton::Sit, PetButtonState::Off);
+			client_owner->SetPetCommandState(PetButton::Follow, PetButtonState::On);
+			client_owner->SetPetCommandState(PetButton::Guard, PetButtonState::Off);
+			client_owner->SetPetCommandState(PetButton::Stop, PetButtonState::Off);
+		}
 		summon_count--;
 	}
 
@@ -281,7 +296,22 @@ void Mob::TypesTemporaryPets(uint32 typesid, Mob *targ, const char *name_overrid
 		if(npc_dup != nullptr)
 			swarm_pet_npc->GiveNPCTypeData(npc_dup);
 
+		bool swarm_pet_command_anchor = IsClient() && !GetPet();
+		if (swarm_pet_command_anchor) {
+			swarm_pet_npc->SetOwnerID(GetID());
+		}
+
 		entity_list.AddNPC(swarm_pet_npc, true, true);
+		if (swarm_pet_command_anchor) {
+			SetPetID(swarm_pet_npc->GetID());
+			swarm_pet_npc->SendPetBuffsToClient();
+			swarm_pet_npc->SendAppearancePacket(AppearanceType::Pet, GetID(), true, true);
+			auto client_owner = CastToClient();
+			client_owner->SetPetCommandState(PetButton::Sit, PetButtonState::Off);
+			client_owner->SetPetCommandState(PetButton::Follow, PetButtonState::On);
+			client_owner->SetPetCommandState(PetButton::Guard, PetButtonState::Off);
+			client_owner->SetPetCommandState(PetButton::Stop, PetButtonState::Off);
+		}
 		summon_count--;
 	}
 
@@ -502,7 +532,22 @@ void Mob::WakeTheDead(uint16 spell_id, Corpse *corpse_to_use, Mob *tar, uint32 d
 		if (npc_dup != nullptr)
 			swarm_pet_npc->GiveNPCTypeData(npc_dup);
 
+		bool swarm_pet_command_anchor = IsClient() && !GetPet();
+		if (swarm_pet_command_anchor) {
+			swarm_pet_npc->SetOwnerID(GetID());
+		}
+
 		entity_list.AddNPC(swarm_pet_npc, true, true);
+		if (swarm_pet_command_anchor) {
+			SetPetID(swarm_pet_npc->GetID());
+			swarm_pet_npc->SendPetBuffsToClient();
+			swarm_pet_npc->SendAppearancePacket(AppearanceType::Pet, GetID(), true, true);
+			auto client_owner = CastToClient();
+			client_owner->SetPetCommandState(PetButton::Sit, PetButtonState::Off);
+			client_owner->SetPetCommandState(PetButton::Follow, PetButtonState::On);
+			client_owner->SetPetCommandState(PetButton::Guard, PetButtonState::Off);
+			client_owner->SetPetCommandState(PetButton::Stop, PetButtonState::Off);
+		}
 		summon_count--;
 	}
 

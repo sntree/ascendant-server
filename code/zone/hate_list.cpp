@@ -19,6 +19,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include "hate_list.h"
 
 #include "common/data_verification.h"
+#include "common/rulesys.h"
 #include "zone/client.h"
 #include "zone/entity.h"
 #include "zone/groups.h"
@@ -782,6 +783,7 @@ int HateList::AreaRampage(Mob *caster, Mob *target, int count, ExtraAttackOption
 	std::vector<uint16> id_list;
 	for (auto &h : list) {
 		if (h->entity_on_hatelist && h->entity_on_hatelist != caster && h->entity_on_hatelist != target &&
+			(!RuleB(Ascendant, PetRequireHateTopForAERampage) || !h->entity_on_hatelist->IsPetNotHateTopOf(caster)) &&
 			caster->CombatRange(h->entity_on_hatelist, 1.0, true, opts)) {
 			id_list.push_back(h->entity_on_hatelist->GetID());
 		}

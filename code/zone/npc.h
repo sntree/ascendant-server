@@ -210,6 +210,7 @@ public:
 	void RemoveItem(uint32 item_id, uint16 quantity = 0, uint16 slot = 0);
 	void CheckTrivialMinMaxLevelDrop(Mob *killer);
 	void ClearLootItems();
+	void ClearEquippedItems();
 	inline const LootItems &GetLootItems() { return m_loot_items; }
 	LootItem *GetItem(int slot_id);
 	void AddLootCash(uint32 in_copper, uint32 in_silver, uint32 in_gold, uint32 in_platinum);

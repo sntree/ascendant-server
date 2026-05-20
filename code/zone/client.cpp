@@ -7286,7 +7286,21 @@ void Client::Doppelganger(uint16 spell_id, Mob *target, const char *name_overrid
 		//we allocated a new NPC type object, give the NPC ownership of that memory
 		swarm_pet_npc->GiveNPCTypeData(npc_type_copy);
 
+		bool swarm_pet_command_anchor = !GetPet();
+		if (swarm_pet_command_anchor) {
+			swarm_pet_npc->SetOwnerID(GetID());
+		}
+
 		entity_list.AddNPC(swarm_pet_npc);
+		if (swarm_pet_command_anchor) {
+			SetPetID(swarm_pet_npc->GetID());
+			swarm_pet_npc->SendPetBuffsToClient();
+			swarm_pet_npc->SendAppearancePacket(AppearanceType::Pet, GetID(), true, true);
+			SetPetCommandState(PetButton::Sit, PetButtonState::Off);
+			SetPetCommandState(PetButton::Follow, PetButtonState::On);
+			SetPetCommandState(PetButton::Guard, PetButtonState::Off);
+			SetPetCommandState(PetButton::Stop, PetButtonState::Off);
+		}
 		summon_count--;
 	}
 

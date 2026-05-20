@@ -25,6 +25,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include "common/spdat.h"
 #include "common/strings.h"
 #include "zone/bot.h"
+#include "zone/client.h"
 #include "zone/fastmath.h"
 #include "zone/lua_parser.h"
 #include "zone/mob.h"
@@ -41,6 +42,71 @@ extern WorldServer worldserver;
 extern FastMath g_Math;
 extern EntityList entity_list;
 extern Zone* zone;
+
+namespace {
+Mob *GetHeroicScalingPetOwner(Mob *pet)
+{
+	if (
+		!pet ||
+		!RuleB(Ascendant, PetHeroicScalingEnabled) ||
+		!pet->IsPet() ||
+		pet->GetPetType() != PetType::Normal
+	) {
+		return nullptr;
+	}
+
+	Mob *owner = pet->GetOwner();
+	if (!owner || !owner->IsClient()) {
+		return nullptr;
+	}
+
+	return owner;
+}
+
+int GetOwnerHeroicTotalForPet(Mob *owner)
+{
+	if (!owner) {
+		return 0;
+	}
+
+	int total = owner->GetHeroicSTR() + owner->GetHeroicSTA() + owner->GetHeroicDEX() +
+		owner->GetHeroicAGI() + owner->GetHeroicINT() + owner->GetHeroicWIS() +
+		owner->GetHeroicCHA();
+
+	if (RuleB(Ascendant, PetHeroicScalingIncludeResists)) {
+		total += owner->GetHeroicMR() + owner->GetHeroicFR() + owner->GetHeroicCR() +
+			owner->GetHeroicPR() + owner->GetHeroicDR() + owner->CastToClient()->GetHeroicCorrup();
+	}
+
+	return total > 0 ? total : 0;
+}
+
+int GetPetHeroicScalingBonus(Mob *pet, double per_heroic)
+{
+	Mob *owner = GetHeroicScalingPetOwner(pet);
+	if (!owner || per_heroic <= 0.0) {
+		return 0;
+	}
+
+	const int heroic_total = GetOwnerHeroicTotalForPet(owner);
+	if (heroic_total <= 0) {
+		return 0;
+	}
+
+	double focus_multiplier = owner->GetClass() == Class::Magician ?
+		RuleR(Ascendant, PetHeroicMageFocusMultiplier) :
+		RuleR(Ascendant, PetHeroicFocusMultiplier);
+
+	if (focus_multiplier < 0.0) {
+		focus_multiplier = 0.0;
+	}
+
+	const double focus_scalar = 1.0 + (static_cast<double>(pet->GetPetPower()) * focus_multiplier);
+	const double bonus = static_cast<double>(heroic_total) * per_heroic * focus_scalar;
+
+	return bonus > 0.0 ? static_cast<int>(bonus + 0.5) : 0;
+}
+}
 
 //SYNC WITH: tune.cpp, mob.h TuneAttackAnimation
 EQ::skills::SkillType Mob::AttackAnimation(int Hand, const EQ::ItemInstance* weapon, EQ::skills::SkillType skillinuse)
@@ -206,7 +272,8 @@ int Mob::GetTotalToHit(EQ::skills::SkillType skill, int chance_mod)
 		spellbonuses.Accuracy[EQ::skills::HIGHEST_SKILL + 1] +
 		itembonuses.Accuracy[skill] +
 		aabonuses.Accuracy[skill] +
-		spellbonuses.Accuracy[skill];
+		spellbonuses.Accuracy[skill] +
+		GetPetAccuracyBonusFromOwner();
 
 	// auto hit discs (and looks like there are some autohit AAs)
 	if (spellbonuses.HitChanceEffect[skill] >= 10000 || aabonuses.HitChanceEffect[skill] >= 10000)
@@ -486,9 +553,11 @@ bool Mob::AvoidDamage(Mob *other, DamageHitInfo &hit)
 		-Attacker that is enraged is immune to riposte
 	*/
 
+	const bool pet_ignore_enrage = RuleB(Ascendant, PetIgnoreEnrage) && IsEnraged() && (attacker->IsPet() || attacker->IsTempPet());
+
 	// Need to check if we have something in MainHand to actually attack with (or fists)
-	if (hit.hand != EQ::invslot::slotRange && (CanThisClassRiposte() || IsEnraged()) && InFront && !ImmuneRipo) {
-		if (IsEnraged()) {
+	if (hit.hand != EQ::invslot::slotRange && (CanThisClassRiposte() || (IsEnraged() && !pet_ignore_enrage)) && InFront && !ImmuneRipo) {
+		if (IsEnraged() && !pet_ignore_enrage) {
 			hit.damage_done = DMG_RIPOSTED;
 			LogCombat("I am enraged, riposting frontal attack");
 			return true;
@@ -1106,6 +1175,12 @@ void Mob::MeleeMitigation(Mob *attacker, DamageHitInfo &hit, ExtraAttackOptions 
 
 	// +0.5 for rounding, min to 1 dmg
 	hit.damage_done = std::max(static_cast<int>(roll * static_cast<double>(hit.base_damage) + 0.5), 1);
+
+	const int pet_heroic_mitigation = GetPetHeroicMitigationBonusFromOwner();
+	if (pet_heroic_mitigation > 0) {
+		hit.damage_done -= hit.damage_done * pet_heroic_mitigation / 100;
+		hit.damage_done = std::max<int64>(hit.damage_done, 1);
+	}
 
 	Log(Logs::Detail, Logs::Attack, "mitigation %d vs offense %d. base %d rolled %f damage %d", mitigation, hit.offense, hit.base_damage, roll, hit.damage_done);
 }
@@ -3700,6 +3775,28 @@ int64 Mob::AffectMagicalDamage(int64 damage, uint16 spell_id, const bool iBuffTi
 	if (damage <= 0)
 		return damage;
 
+	if (
+		attacker &&
+		IsPetNotHateTopOf(attacker) &&
+		IsAnyAESpell(spell_id)
+	) {
+		const int damage_percent = EQ::Clamp(RuleI(Ascendant, PetNonHateTopAESpellDamagePercent), 0, 100);
+		damage = damage * damage_percent / 100;
+	}
+
+	if (damage <= 0) {
+		return damage;
+	}
+
+	const int pet_heroic_mitigation = GetPetHeroicMitigationBonusFromOwner();
+	if (pet_heroic_mitigation > 0) {
+		damage -= damage * pet_heroic_mitigation / 100;
+	}
+
+	if (damage <= 0) {
+		return damage;
+	}
+
 	bool DisableSpellRune = false;
 	int32 slot = -1;
 
@@ -5189,9 +5286,11 @@ void Mob::TrySpellProc(const EQ::ItemInstance *inst, const EQ::ItemData *weapon,
 		if (!rangedattk) {
 			// Perma procs (Not used for AA, they are handled below)
 			if (IsValidSpell(PermaProcs[i].spellID)) {
-				if (zone->random.Roll(PermaProcs[i].chance)) { // TODO: Do these get spell bonus?
+				if (!IsProcLimitTimerActive(PermaProcs[i].base_spellID, PermaProcs[i].proc_reuse_time, ProcType::MELEE_PROC) &&
+					zone->random.Roll(PermaProcs[i].chance)) { // TODO: Do these get spell bonus?
 					LogCombat("Permanent proc [{}] procing spell [{}] ([{}] percent chance)", i, PermaProcs[i].spellID, PermaProcs[i].chance);
 					ExecWeaponProc(nullptr, PermaProcs[i].spellID, on);
+					SetProcLimitTimer(PermaProcs[i].base_spellID, PermaProcs[i].proc_reuse_time, ProcType::MELEE_PROC);
 				}
 				else {
 					LogCombat("Permanent proc [{}] failed to proc [{}] ([{}] percent chance)", i, PermaProcs[i].spellID, PermaProcs[i].chance);
@@ -7020,6 +7119,10 @@ void Mob::DoOffHandAttackRounds(Mob *target, ExtraAttackOptions *opts, bool ramp
 	}
 }
 
+int Mob::GetPetAccuracyBonusFromOwner()
+{
+	return GetPetHeroicScalingBonus(this, RuleR(Ascendant, PetHeroicAccuracyPerHeroic));
+}
 
 int Mob::GetPetAvoidanceBonusFromOwner()
 {
@@ -7029,11 +7132,15 @@ int Mob::GetPetAvoidanceBonusFromOwner()
 	else if (IsNPC() && CastToNPC()->GetSwarmOwner())
 		owner = entity_list.GetMobID(CastToNPC()->GetSwarmOwner());
 
-	if (owner)
-		return owner->aabonuses.PetAvoidance + owner->spellbonuses.PetAvoidance + owner->itembonuses.PetAvoidance;
+	if (owner) {
+		return owner->aabonuses.PetAvoidance + owner->spellbonuses.PetAvoidance +
+			owner->itembonuses.PetAvoidance +
+			GetPetHeroicScalingBonus(this, RuleR(Ascendant, PetHeroicAvoidancePerHeroic));
+	}
 
 	return 0;
 }
+
 int Mob::GetPetACBonusFromOwner()
 {
 	Mob *owner = nullptr;
@@ -7055,10 +7162,22 @@ int Mob::GetPetATKBonusFromOwner()
 	else if (IsNPC() && CastToNPC()->GetSwarmOwner())
 		owner = entity_list.GetMobID(CastToNPC()->GetSwarmOwner());
 
-	if (owner)
-		return owner->aabonuses.Pet_Add_Atk + owner->spellbonuses.Pet_Add_Atk + owner->itembonuses.Pet_Add_Atk;
+	if (owner) {
+		return owner->aabonuses.Pet_Add_Atk + owner->spellbonuses.Pet_Add_Atk +
+			owner->itembonuses.Pet_Add_Atk +
+			GetPetHeroicScalingBonus(this, RuleR(Ascendant, PetHeroicATKPerHeroic));
+	}
 
 	return 0;
+}
+
+int Mob::GetPetHeroicMitigationBonusFromOwner()
+{
+	return EQ::Clamp(
+		GetPetHeroicScalingBonus(this, RuleR(Ascendant, PetHeroicMitigationPerHeroic)),
+		0,
+		RuleI(Ascendant, PetHeroicMitigationCap)
+	);
 }
 
 

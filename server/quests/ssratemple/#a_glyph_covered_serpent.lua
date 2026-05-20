@@ -20,6 +20,23 @@ function event_timer(e)
 	end
 end
 
+local function ssra_state_id()
+	local expedition = eq.get_expedition()
+	if expedition.valid then
+		local uuid = expedition:GetUUID()
+		if uuid ~= "" then
+			return "dz_" .. uuid
+		end
+	end
+
+	local instance_id = eq.get_zone_instance_id()
+	if instance_id > 0 then
+		return "inst_" .. instance_id
+	end
+
+	return "0"
+end
+
 function event_killed_merit(e)
 	local account_id = e.other:AccountID()
 	local char_name = e.other:GetCleanName()
@@ -33,5 +50,5 @@ end
 
 function event_death_complete(e)
 	eq.signal(162255,1); -- #cursed_controller
-	eq.set_data("ssra_glyphed_" .. eq.get_zone_instance_id(), "1", "D3");
+	eq.set_data("ssra_glyphed_" .. ssra_state_id(), "1", "D1");
 end

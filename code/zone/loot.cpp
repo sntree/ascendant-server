@@ -779,6 +779,54 @@ void NPC::ClearLootItems()
 	}
 }
 
+void NPC::ClearEquippedItems()
+{
+	for (auto cur = m_loot_items.begin(); cur != m_loot_items.end();) {
+		LootItem *item = *cur;
+		if (
+			item &&
+			EQ::ValueWithin(
+				item->equip_slot,
+				static_cast<int16>(EQ::invslot::EQUIPMENT_BEGIN),
+				static_cast<int16>(EQ::invslot::EQUIPMENT_END)
+			)
+		) {
+			cur = m_loot_items.erase(cur);
+			safe_delete(item);
+			continue;
+		}
+
+		++cur;
+	}
+
+	for (int slot_id = EQ::invslot::EQUIPMENT_BEGIN; slot_id <= EQ::invslot::EQUIPMENT_END; ++slot_id) {
+		if (!equipment[slot_id] && !GetInv().GetItem(slot_id)) {
+			continue;
+		}
+
+		equipment[slot_id] = 0;
+		GetInv().DeleteItem(slot_id);
+
+		const uint8 material_slot = EQ::InventoryProfile::CalcMaterialFromSlot(slot_id);
+		if (material_slot != EQ::textures::materialInvalid) {
+			SendWearChange(material_slot);
+		}
+	}
+
+	SetBowEquipped(false);
+	SetArrowEquipped(false);
+	SetTwoHanderEquipped(false);
+	SendRemovePlayerState(PlayerState::PrimaryWeaponEquipped);
+	SendRemovePlayerState(PlayerState::SecondaryWeaponEquipped);
+	SetFacestab(false);
+
+	CalcBonuses();
+	UpdateEquipmentLight();
+	if (UpdateActiveLight()) {
+		SendAppearancePacket(AppearanceType::Light, GetActiveLightType());
+	}
+}
+
 void NPC::QueryLoot(Client *to, bool is_pet_query)
 {
 	if (!m_loot_items.empty()) {

@@ -1111,10 +1111,13 @@ public:
 	inline bool IsPetOwnerOfClientBot() const { return pet_owner_bot || pet_owner_client; }
 	inline bool IsTempPet() const { return _IsTempPet; }
 	inline void SetTempPet(bool value) { _IsTempPet = value; }
+	bool IsPetNotHateTopOf(Mob *hater);
 	inline bool IsHorse() { return is_horse; }
+	int GetPetAccuracyBonusFromOwner();
 	int GetPetAvoidanceBonusFromOwner();
 	int GetPetACBonusFromOwner();
 	int GetPetATKBonusFromOwner();
+	int GetPetHeroicMitigationBonusFromOwner();
 
 	inline const uint8 GetBodyType() const { return bodytype; }
 	inline const uint8 GetOrigBodyType() const { return orig_bodytype; }
@@ -1817,6 +1820,8 @@ protected:
 	Mob* bindwound_target;
 
 	Timer stunned_timer;
+	Timer npc_spell_stun_grace_timer;
+	Timer npc_spell_silence_grace_timer;
 	Timer spun_timer;
 	Timer bardsong_timer;
 	Timer gravity_timer;

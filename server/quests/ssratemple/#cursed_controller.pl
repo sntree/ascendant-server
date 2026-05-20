@@ -3,9 +3,21 @@ my $variance = int(rand(600));
 my $spawntime = 4320 + $variance;
 my $inst;
 
-sub _cursed_key  { return "ssra_cursed_$inst"; }
-sub _glyphed_key { return "ssra_glyphed_$inst"; }
-sub _exiled_key  { return "ssra_exiled_$inst"; }
+sub _ssra_state_id {
+  return "0" unless $inst > 0;
+
+  my $dz = quest::get_expedition();
+  if ($dz) {
+    my $uuid = $dz->GetUUID();
+    return "dz_$uuid" if $uuid ne "";
+  }
+
+  return "inst_$inst";
+}
+
+sub _cursed_key  { return "ssra_cursed_" . _ssra_state_id(); }
+sub _glyphed_key { return "ssra_glyphed_" . _ssra_state_id(); }
+sub _exiled_key  { return "ssra_exiled_" . _ssra_state_id(); }
 
 sub EVENT_SPAWN {
   $inst = $instanceid || 0;
@@ -94,7 +106,7 @@ sub EVENT_SIGNAL {
   }
   if ($signal == 3) {
     if ($inst > 0) {
-      quest::set_data(_cursed_key(), "1"); #Permanent - no respawn in instances
+      quest::set_data(_cursed_key(), "1", "D1"); #24 hours - expires with DZ
       quest::stoptimer("cursed");
       quest::stoptimer("one");
       quest::depop_withtimer();

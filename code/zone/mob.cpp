@@ -114,6 +114,8 @@ Mob::Mob(
 	rewind_timer(30000),
 	bindwound_timer(10000),
 	stunned_timer(0),
+	npc_spell_stun_grace_timer(0),
+	npc_spell_silence_grace_timer(0),
 	spun_timer(0),
 	bardsong_timer(6000),
 	forget_timer(0),
@@ -470,6 +472,8 @@ Mob::Mob(
 	// Bind wound
 	bindwound_timer.Disable();
 	bindwound_target = 0;
+	npc_spell_stun_grace_timer.Disable();
+	npc_spell_silence_grace_timer.Disable();
 
 	trade          = new Trade(this);
 	// hp event
@@ -4539,6 +4543,16 @@ Mob* Mob::GetOwner() {
 	return 0;
 }
 
+bool Mob::IsPetNotHateTopOf(Mob *hater)
+{
+	if (!hater || (!IsPet() && !IsTempPet())) {
+		return false;
+	}
+
+	Mob *hate_top = hater->GetHateTop();
+	return hate_top && hate_top != this;
+}
+
 Mob* Mob::GetUltimateOwner()
 {
 	Mob* m = GetOwner();
@@ -6871,6 +6885,17 @@ void Mob::MeleeLifeTap(int64 damage) {
 	int32 lifetap_amt = 0;
 	int32 melee_lifetap_mod = spellbonuses.MeleeLifetap + itembonuses.MeleeLifetap + aabonuses.MeleeLifetap
 					+ spellbonuses.Vampirism + itembonuses.Vampirism + aabonuses.Vampirism;
+
+	Mob *owner = GetOwner();
+	if (
+		IsPet() &&
+		GetPetType() == PetType::Normal &&
+		owner &&
+		owner->IsClient() &&
+		owner->GetClass() == Class::Magician
+	) {
+		melee_lifetap_mod += EQ::Clamp(RuleI(Ascendant, MagePetMeleeLifetapPct), 0, 100);
+	}
 
 	if(melee_lifetap_mod && damage > 0){
 

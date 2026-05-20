@@ -2097,6 +2097,10 @@ bool Mob::Rampage(ExtraAttackOptions *opts)
 				continue;
 			}
 
+			if (RuleB(Ascendant, PetRequireHateTopForRampage) && m_target->IsPetNotHateTopOf(this)) {
+				continue;
+			}
+
 			if (m_target->IsCorpse()) {
 				LogAggroDetail("[{}] is on [{}]'s rampage list", m_target->GetCleanName(), GetCleanName());
 				RemoveFromRampageList(m_target, true);
@@ -2127,6 +2131,11 @@ bool Mob::Rampage(ExtraAttackOptions *opts)
 					if (m_target == GetTarget()) {
 						continue;
 					}
+
+					if (RuleB(Ascendant, PetRequireHateTopForRampage) && m_target->IsPetNotHateTopOf(this)) {
+						continue;
+					}
+
 					ProcessAttackRounds(m_target, opts, true);
 					index_hit++;
 				}

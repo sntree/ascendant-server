@@ -8,19 +8,23 @@ function event_timer(e)
 end
 
 function event_death_complete(e)
+   if math.random(1, 100) > 30 then
+      return;
+   end
+
    local ran = math.random(1, 100);
    local mob;
    local x, y, z , h = e.self:GetX(), e.self:GetY(), e.self:GetZ(), e.self:GetHeading();
-   if ran <= 30 then
-      --qua 
+   if ran <= 50 then
+      --qua
       mob = 158064;
-   elseif ran <= 50 then
+   elseif ran <= 75 then
       --zov
       mob = 158025;
-   elseif ran <= 70 then
+   elseif ran <= 90 then
       --zun
       mob = 158058;
-   elseif ran <= 85 then
+   elseif ran <= 97 then
       --pli
       mob = 158060;
    else
@@ -30,6 +34,4 @@ function event_death_complete(e)
 
    local spawned = eq.spawn2(mob, 0, 0, x, y, z, h);
    eq.set_timer('depop', 30 * 60 * 1000, spawned);
-    
-
 end
