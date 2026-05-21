@@ -918,8 +918,9 @@ bool Client::HandleEnterWorldPacket(const EQApplicationPacket *app) {
 
 	if (!zone_id || !ZoneName(zone_id)) {
 		// This is to save people in an invalid zone, once it's removed from the DB
-		database.MoveCharacterToZone(charid, ZoneID("arena"));
-		LogInfo("Zone [{}] not found, moving [{}] to Arena.", zone_id, char_name);
+		zone_id = ZoneID("nexus");
+		database.MoveCharacterToZone(charid, zone_id);
+		LogInfo("Zone [{}] not found, moving [{}] to Nexus.", zone_id, char_name);
 	}
 
 	if (instance_id) {
@@ -1410,8 +1411,9 @@ void Client::EnterWorld(bool TryBootup) {
 		if (!database.VerifyInstanceAlive(instance_id, GetCharID()) ||
 		    !database.VerifyZoneInstance(zone_id, instance_id))
 		{
+			const auto safe_return_zone_id = database.MoveCharacterToInstanceSafeReturn(GetCharID(), zone_id, instance_id);
 			instance_id = 0;
-			database.MoveCharacterToInstanceSafeReturn(GetCharID(), zone_id, instance_id);
+			zone_id = safe_return_zone_id;
 			TellClientZoneUnavailable();
 			return;
 		}
@@ -2067,7 +2069,7 @@ bool CheckCharCreateInfoTitanium(CharCreate_Struct *cc)
 	{ /*Wizard*/          true,  false,    true,   false,  true,   true,   false,  false, false, false, false,   true,  false, false,  true,   true},
 	{ /*Magician*/        true,  false,    true,   false,  true,   true,   false,  false, false, false, false,   true,  false, false,  false,  true},
 	{ /*Enchanter*/       true,  false,    true,   false,  true,   true,   false,  false, false, false, false,   true,  false, false,  false,  true},
-	{ /*Beastlord*/       false, true,     false,  false,  false,  false,  false,  false, true,  true,  false,   false, true,  true,   false,  false},
+	{ /*Beastlord*/       true,  true,     true,   true,   true,   true,   true,   true,  true,  true,  true,    true,  true,  true,   true,   false},
 	{ /*Berserker*/       false, true,     false,  false,  false,  false,  false,  true,  true,  true,  false,   false, false, true,   false,  false}
 	};
 

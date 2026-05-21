@@ -52,17 +52,13 @@ sub EquipPetFromBag {
     my $base_key   = "petbag_base:${char_id}_${pet_eid}";
     my $existing_base = quest::get_data($base_key);
 
-    # Only call AddItem on first equip. On re-equip, items already persist in
-    # equipment[]/GetInv() from the first equip. ClearItemList() only clears
-    # m_loot_items (the loot drop list), NOT the equipped inventory that
-    # CalcItemBonuses iterates. Calling AddItem again causes multi-slot items
-    # (rings, wrists, ears) to equip into alternate empty slots, doubling stats.
-    my $is_first_equip = !$existing_base;
-
-    if ($is_first_equip) {
-        $npc->ClearItemList();
-        quest::debug("PetBag: First equip — cleared loot list");
-    }
+    # Always reset pet-bag state before applying the current bag contents.
+    # Core pet zoning can restore equipment before this plugin runs, and manual
+    # re-equip can be requested repeatedly. Clearing both lists prevents
+    # multi-slot items and augments from stacking into alternate slots.
+    $npc->ClearItemList();
+    $npc->ClearEquippedItems();
+    quest::debug("PetBag: Cleared pet loot and equipped inventory before reapplying pet bag");
 
     my $equipped_count = 0;
 
@@ -115,15 +111,13 @@ sub EquipPetFromBag {
         
         quest::debug("PetBag: Found item in slot $bag_slot: $item_name (ID: $item_id)");
         
-        if ($is_first_equip) {
-            my $aug1 = $item->GetAugmentItemID(0) || 0;
-            my $aug2 = $item->GetAugmentItemID(1) || 0;
-            my $aug3 = $item->GetAugmentItemID(2) || 0;
-            my $aug4 = $item->GetAugmentItemID(3) || 0;
-            my $aug5 = $item->GetAugmentItemID(4) || 0;
-            my $aug6 = $item->GetAugmentItemID(5) || 0;
-            $npc->AddItem($item_id, 1, 1, $aug1, $aug2, $aug3, $aug4, $aug5, $aug6);
-        }
+        my $aug1 = $item->GetAugmentItemID(0) || 0;
+        my $aug2 = $item->GetAugmentItemID(1) || 0;
+        my $aug3 = $item->GetAugmentItemID(2) || 0;
+        my $aug4 = $item->GetAugmentItemID(3) || 0;
+        my $aug5 = $item->GetAugmentItemID(4) || 0;
+        my $aug6 = $item->GetAugmentItemID(5) || 0;
+        $npc->AddItem($item_id, 1, 1, $aug1, $aug2, $aug3, $aug4, $aug5, $aug6);
         $equipped_count++;
 
         # Accumulate AC/ATK bonuses (AddItem does NOT apply these to pets)

@@ -4875,6 +4875,15 @@ bool Mob::HateSummon() {
 	SetTarget(GetHateTop());
 	if(target)
 	{
+		const int min_summon_distance = RuleI(Ascendant, HateSummonMinDistance);
+		if (min_summon_distance > 0) {
+			const float min_summon_distance_squared =
+				static_cast<float>(min_summon_distance) * static_cast<float>(min_summon_distance);
+			if (DistanceSquared(m_Position, target->GetPosition()) < min_summon_distance_squared) {
+				return false;
+			}
+		}
+
 		if(summon_level == 1) {
 			entity_list.MessageClose(this, true, 500, Chat::Say, "%s says 'You will not evade me, %s!' ", GetCleanName(), target->GetCleanName() );
 

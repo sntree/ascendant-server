@@ -3092,6 +3092,8 @@ int Mob::CheckStackConflict(uint16 spellid1, int caster_level1, uint16 spellid2,
 	const SPDat_Spell_Struct &sp1 = spells[spellid1];
 	const SPDat_Spell_Struct &sp2 = spells[spellid2];
 
+	const bool block_charm_overwrite = IsEffectInSpell(spellid1, SpellEffect::Charm);
+
 	int i, effect1, effect2, sp1_value, sp2_value;
 	int blocked_effect, blocked_below_value, blocked_slot;
 	int overwrite_effect, overwrite_below_value, overwrite_slot;
@@ -3134,6 +3136,11 @@ int Mob::CheckStackConflict(uint16 spellid1, int caster_level1, uint16 spellid2,
 					return -1;
 				}
 			} else {
+				if (block_charm_overwrite) {
+					LogSpells("Blocking [{}] from overwriting active charm spell [{}]", sp2.name, sp1.name);
+					return -1;
+				}
+
 				LogSpells("Spells the same but newer is higher or equal level, overwriting");
 				return 1;
 			}
@@ -3248,6 +3255,11 @@ int Mob::CheckStackConflict(uint16 spellid1, int caster_level1, uint16 spellid2,
 							}
 						}
 						LogSpells("Overwrite spell because sp1_value < overwrite_below_value");
+						if (block_charm_overwrite) {
+							LogSpells("Blocking [{}] from overwriting active charm spell [{}]", sp2.name, sp1.name);
+							return -1;
+						}
+
 						return 1;			// overwrite spell if its value is less
 					}
 				} else {
@@ -3430,6 +3442,11 @@ int Mob::CheckStackConflict(uint16 spellid1, int caster_level1, uint16 spellid2,
 					sp2.name, spellid2, sp1.name, spellid1);
 			return -1;
 		}
+		if (block_charm_overwrite) {
+			LogSpells("Blocking [{}] from overwriting active charm spell [{}]", sp2.name, sp1.name);
+			return -1;
+		}
+
 		LogSpells("Stacking code decided that [{}] should overwrite [{}]", sp2.name, sp1.name);
 		return(1);
 	}

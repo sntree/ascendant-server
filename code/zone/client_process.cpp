@@ -21,6 +21,7 @@
 
 #include "client.h"
 
+#include "common/classes.h"
 #include "common/data_verification.h"
 #include "common/eqemu_logsys.h"
 #include "common/events/player_event_logs.h"
@@ -331,7 +332,8 @@ bool Client::Process() {
 		*/
 		if (auto_attack) {
 			if (!IsAIControlled() && !dead
-				&& !(spellend_timer.Enabled() && casting_spell_id && !IsBardSong(casting_spell_id))
+				&& !(spellend_timer.Enabled() && casting_spell_id && !IsBardSong(casting_spell_id) &&
+					!(RuleB(Ascendant, AllowCasterMeleeWhileCasting) && IsCasterClass(GetClass())))
 				&& !IsStunned() && !IsFeared() && !IsMezzed() && GetAppearance() != eaDead && !IsMeleeDisabled()
 				)
 				may_use_attacks = true;

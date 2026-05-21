@@ -17,6 +17,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 */
 
 #include "common/data_verification.h"
+#include "common/classes.h"
 #include "common/eq_constants.h"
 #include "common/eq_packet_structs.h"
 #include "common/events/player_event_logs.h"
@@ -1652,7 +1653,8 @@ bool Mob::Attack(Mob* other, int Hand, bool bRiposte, bool IsStrikethrough, bool
 	LogCombatDetail("Attacking [{}] with hand [{}] [{}]", other->GetName(), Hand, bRiposte ? "this is a riposte" : "");
 
 	if (
-		(IsCasting() && GetClass() != Class::Bard && !IsFromSpell)
+		(IsCasting() && GetClass() != Class::Bard && !IsFromSpell &&
+			!(RuleB(Ascendant, AllowCasterMeleeWhileCasting) && IsCasterClass(GetClass())))
 		|| ((IsClient() && CastToClient()->dead) || (other->IsClient() && other->CastToClient()->dead))
 		|| (GetHP() < 0)
 		|| (!IsAttackAllowed(other))

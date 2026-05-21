@@ -1230,6 +1230,8 @@ RULE_INT(Ascendant, CapSpellCastTimeMS, 3010,
 // --- Pure caster channeling ---
 RULE_INT(Ascendant, PureCasterChannelingBonus, 20,
 	"[Ascendant] Flat bonus added to channeling concentration chance for Nec/Wiz/Mag/Enc only. 0 = disabled.")
+RULE_BOOL(Ascendant, AllowCasterMeleeWhileCasting, true,
+	"[Ascendant] Allows Cleric/Druid/Shaman/Nec/Wiz/Mag/Enc player classes to continue melee auto-attacks while casting.")
 // --- Pure caster nuke damage ---
 RULE_INT(Ascendant, PureCasterSpellDmgBonus, 50,
 	"[Ascendant] Pct bonus to nuke damage for Nec/Wiz/Mag/Enc on spells with cast_time >= PureCasterDmgMinCastTimeMS. Excludes lifetaps (no_heal_damage_item_mod). 0 = disabled.")
@@ -1282,6 +1284,8 @@ RULE_INT(Ascendant, WizardArcaneOvervoltDmgBonus, 75,
 // --- Hate summon HP threshold ---
 RULE_INT(Ascendant, HateSummonHPRatio, 90,
 	"[Ascendant] Default HP ratio threshold for NPC hate summon. Mob must be at or below this HP% to summon. Per-NPC special_abilities param overrides this. 0 = disable hate summon.")
+RULE_INT(Ascendant, HateSummonMinDistance, 35,
+	"[Ascendant] Minimum 3D distance required before NPC hate summon can fire. Prevents summoning targets already close to the NPC. 0 = disabled.")
 // --- Silence duration cap ---
 RULE_INT(Ascendant, MaxSilenceDurationForPlayerCharacter, 2,
 	"[Ascendant] Maximum number of tics a player can be silenced. 1 tic equals 6 seconds. 0 = no cap (vanilla behavior).")
