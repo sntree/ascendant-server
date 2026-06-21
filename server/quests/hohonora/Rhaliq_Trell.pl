@@ -4,8 +4,12 @@ sub EVENT_SAY {
 		}
 
 		if($text=~/ready/i) {
-			quest::say("Be warned, $name, if you believe you are ready, you will fail, even if you can kill Lord Marrs servants!");
-			quest::spawn2(211088,0,0,526,1375,-115,$h); # NPC: #A_Custodian_of_Marr
-			quest::depop_withtimer();
+			quest::say("Be warned, $name, if you believe you are ready, you will fail, even if you can kill Lord Marrs servants! Defend the innocents one chamber at a time; return and tell me you are [ready] once each chamber is secure.");
+			quest::signalwith(211087, 3, 0); # tell #Rhaliq_Trell_Trigger to begin / advance a chamber
 		}
+}
+
+sub EVENT_SIGNAL {
+	# The controller tells us the trial has concluded -- step aside until the spawn timer resets us.
+	quest::depop_withtimer();
 }

@@ -29,7 +29,7 @@ end
 
 
 function event_spawn(e)
-	eq.set_timer("despawn", 2700 * 1000);
+	eq.set_timer("despawn", 7200 * 1000); -- 2h idle-despawn (forgiving; only runs while unengaged)
 	e.self:Shout("Elements of Air and Dust I call upon you to aid me in the defense of this land!");
 end
 

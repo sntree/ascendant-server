@@ -71,6 +71,7 @@ local phaselockouts = {
 
 
 function event_enter_zone(e)
+	local instance_id = eq.get_zone_instance_id();
 	if(instance_id ~= 0) then
         e.self:Message(MT.Yellow,"You have entered an Instanced Version of the zone.");
     end
@@ -314,7 +315,7 @@ function event_say(e)
 end
 
 function ZoneReset(e)	--depops zone and reloads controllers
-		for i = 1, 10, 1 do
+		for i = 1, 14, 1 do
 			eq.spawn_condition("potimeb",eq.get_zone_instance_id(),i,0);
 		end
 		eq.depop_zone(false);

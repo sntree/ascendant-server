@@ -125,9 +125,9 @@ function event_say(e)
       eq.set_global("rogue_epic_durgin", "1", 5, "F")
       e.other:Message(MT.Red, "You have confirmed Durgin's innocence.")
 
-      if qglobals["rogue_chest_mira"] == nil then
+      if eq.is_current_expansion_omens_of_war() and qglobals["rogue_chest_mira"] == nil then
         eq.set_global("rogue_chest_mira", "1", 5, "F")
-        eq.spawn2(893, 0, 0, e.self:GetX(), e.self:GetY(), e.self:GetZ(), e.self:GetHeading()) -- a_chest
+        eq.spawn2(893, 0, 0, e.self:GetX(), e.self:GetY(), e.self:GetZ(), e.self:GetHeading()) -- a_chest -- gated to OoW
       end
     end
   end

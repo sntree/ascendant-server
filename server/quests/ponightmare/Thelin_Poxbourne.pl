@@ -4,6 +4,16 @@ quest::settimer(1,1);
 quest::settimer(2,7200);
 }
 
+sub EVENT_SAY {
+  if($text=~/Hail/i) {
+    quest::say("Stay close to me. Should I linger too long at a turn, urge me to [" . quest::saylink("continue") . "] and I shall press on through the maze.");
+  }
+  elsif($text=~/continue/i) {
+    quest::emote("steels himself and presses onward through the hedge maze.");
+    quest::resume();
+  }
+}
+
 sub EVENT_DEATH_COMPLETE {
 $spawn_mob1 = undef;
 $flag = undef;

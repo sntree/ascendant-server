@@ -9,7 +9,7 @@ local trial_wave      = 0;
 local wave_timer      = 90000;
 local first_wave      = 20000;
 
-local trial_mobs	= { 201463, 201464, 201465, 201466, 201467, 201468, 201469 };
+local trial_mobs	= { 201463, 201464, 201465, 201466, 201467, 201468, 201469, 201470 };
 
 local wave_mobs	= { 201464, 201465, 201466, 201470 };
 
@@ -25,7 +25,8 @@ end
 
 function event_signal(e)
    if (e.signal == 1) then
-      eq.get_entity_list():MessageClose(e.self, false, 120, MT.BrightBlue, "Success!");
+      stop_event_timers();
+      eq.get_entity_list():MessageClose(e.self, false, 500, MT.BrightBlue, "Success!");
 
       eq.signal(201435, 1); -- NPC: The_Tribunal Lashing Trial
 
@@ -34,7 +35,8 @@ function event_signal(e)
 
    elseif (e.signal == 2) then
       -- Failed
-      eq.get_entity_list():MessageClose(e.self, false, 120, MT.BrightBlue, "An unnatural silence falls around you.  The justice of the Tribunal has been pronounced once again.  The defendants have been found... lacking.");
+      stop_event_timers();
+      eq.get_entity_list():MessageClose(e.self, false, 500, MT.BrightBlue, "An unnatural silence falls around you.  The justice of the Tribunal has been pronounced once again.  The defendants have been found... lacking.");
 
       despawn_prisoners();
       eq.signal(201435, 2); -- NPC: The_Tribunal Lashing Trial
@@ -75,6 +77,11 @@ function event_timer(e)
       spawn_spirits();
 
    end
+end
+
+function stop_event_timers()
+   eq.stop_timer("next_wave");
+   eq.stop_timer("spirit_timer");
 end
 
 function spawn_spirits()
@@ -120,4 +127,3 @@ function despawn_mobs()
       eq.depop_all(v);
    end
 end
-

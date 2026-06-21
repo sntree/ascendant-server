@@ -13,8 +13,8 @@ function event_timer(e)
 		eq.stop_timer(e.timer);
 		eq.set_timer("banish",math.random(15,30) * 1000);
 
-		if cur_target.valid then
-			cur_target:MovePC(206,-1,-478,3.13,256);
+		if cur_target.valid and cur_target:IsClient() then
+			cur_target:GMMove(-1,-478,3.13,256);
 		end
 	end
 end

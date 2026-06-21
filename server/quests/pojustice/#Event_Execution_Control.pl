@@ -196,7 +196,7 @@ sub EVENT_TIMER {
                }
                else {
                   $ent->Message(15, 'You are not a part of this trial.');
-                  $ent->MovePC(201,456,825,9,2); # Zone: pojustice
+                  $ent->MovePCInstance(201,$instanceid,456,825,9,2); # Zone: pojustice
                }
             }
             
@@ -304,7 +304,7 @@ sub EVENT_TIMER {
          $c = $entity_list->GetClientByName($player);
          
          if ($c) {
-            $c->MovePC(201,456,825,9, 2); # Zone: pojustice
+            $c->MovePCInstance(201,$instanceid,456,825,9, 2); # Zone: pojustice
             $c->Message(15, "A mysterious force translocates you.");
          }
       }

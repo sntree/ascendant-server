@@ -10,27 +10,38 @@ function event_say(e)
 	if not eq.get_entity_list():IsMobSpawnedByNpcTypeID(204039) then
 		 e.self:Say("Mujaki? Haven't seen him around lately");
 	else
-		MoveGroup(e.other:GetGroup(), e.self:GetX(), e.self:GetY(), e.self:GetZ(), 75, -1939, -2114, 167.48, 121);
-		eq.signal(204039,1); -- NPC: Mujaki_the_Devourer
+		local moved = MoveGroup(e.other:GetGroup(), e.self:GetX(), e.self:GetY(), e.self:GetZ(), 75, -1939, -2114, 167.48, 121);
+		if moved == 0 and e.other:CalculateDistance(e.self:GetX(), e.self:GetY(), e.self:GetZ()) <= 75 then
+			e.other:MovePCInstance(204, eq.get_zone_instance_id(), -1939, -2114, 167.48, 121); -- Zone: ponightmare
+			moved = 1;
+		end
+		if moved > 0 then
+			eq.signal(204039,1); -- NPC: Mujaki_the_Devourer
+		else
+			e.self:Say("Gather closer before I attempt the enchantment.");
+		end
 	end
   end
 end
 
 function MoveGroup(trial_group, src_x, src_y, src_z, distance, tgt_x, tgt_y, tgt_z, tgt_h)
-   if ( trial_group ~= nil) then
+   local moved = 0;
+   if ( trial_group ~= nil and trial_group.valid) then
       local trial_count = trial_group:GroupCount();
       for i = 0, trial_count - 1, 1 do
          local mob_v = trial_group:GetMember(i);
-         if (mob_v.valid and mob_v:IsClient()) then
+         if (mob_v ~= nil and mob_v.valid and mob_v:IsClient()) then
             local client_v = mob_v:CastToClient();
             if (client_v.valid) then
                -- check the distance and port them up if close enough
                if (client_v:CalculateDistance(src_x, src_y, src_z) <= distance) then
                   -- port the player up
-                  client_v:MovePC(204, tgt_x, tgt_y, tgt_z, tgt_h); -- Zone: ponightmare
+                  client_v:MovePCInstance(204, eq.get_zone_instance_id(), tgt_x, tgt_y, tgt_z, tgt_h); -- Zone: ponightmare
+                  moved = moved + 1;
                end
             end
          end
       end
    end
+   return moved;
 end

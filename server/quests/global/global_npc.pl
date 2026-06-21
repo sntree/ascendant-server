@@ -146,7 +146,7 @@ sub EVENT_SPAWN {
   # Skip combat scaling for pets, but allow other pet logic
   my $is_pet = $npc->IsPet();
 
-  if (!$is_pet && !plugin::IsScalingZone($zoneid) && !plugin::IsLdonScalingZone($zoneid) && !plugin::IsLuclinScalingZone($zoneid)) {
+  if (!$is_pet && !plugin::IsScalingZone($zoneid) && !plugin::IsLdonScalingZone($zoneid) && !plugin::IsLuclinScalingZone($zoneid) && !plugin::IsPopScalingZone($zoneid)) {
 
 
     # ---------- DAMAGE ----------
@@ -330,17 +330,17 @@ sub EVENT_SPAWN {
   # -----------------------------
   my $npc_level = $npc->GetLevel();
 
-  # Velious raid targets: level-banded raid loot (2-3 items), skips rare pool
+  # Velious/PoP raid targets: level-banded raid loot (2-3 items), skips rare pool
   my $is_velious_raid = 0;
   if ($npc->IsRaidTarget()) {
       my $zone_exp = plugin::zone_to_expansion($zoneid);
-      if ($zone_exp && $zone_exp eq 'velious') {
+      if ($zone_exp && ($zone_exp eq 'velious' || $zone_exp eq 'pop')) {
           $is_velious_raid = 1;
           plugin::raid_levelblock_loot($npc, $npc_level, $zoneid);
       }
   }
 
-  # For rare spawns - guaranteed bonus loot (1-2 items)
+  # For rare spawns - guaranteed extra rare_spawn loottable roll, with 10% chance for a 2nd roll
   if (!$is_velious_raid && $npc->IsRareSpawn()) {
 
     plugin::rare_levelblock_loot($npc, $npc_level, $zoneid);
@@ -380,7 +380,7 @@ sub EVENT_SPAWN {
     # Also give mischief-style bonus loot like nameds
     plugin::rare_levelblock_loot($npc, $npc_level, $zoneid);
   }
-  # For all other mobs - 1% chance for bonus loot (1 item)
+  # For all other mobs - 0.33% chance for a rare_spawn loottable bonus roll
   elsif (!$is_velious_raid) {
       plugin::common_mob_bonus_loot($npc, $npc_level, $zoneid);
   }
@@ -530,6 +530,7 @@ sub EVENT_COMBAT {
         plugin::EncounterScaling_OnEngage($npc);
         plugin::LdonScaling_OnEngage($npc);
         plugin::LuclinScaling_OnEngage($npc);
+        plugin::PopScaling_OnEngage($npc);
         plugin::AprilFools_OnEngage($npc);
 
         # Fellowship mob strength scaling (after encounter scaling)
@@ -544,6 +545,7 @@ sub EVENT_COMBAT {
         plugin::EncounterScaling_OnDisengage($npc);
         plugin::LdonScaling_OnDisengage($npc);
         plugin::LuclinScaling_OnDisengage($npc);
+        plugin::PopScaling_OnDisengage($npc);
         plugin::Fellowship_RestoreMob($npc);
     }
 }
@@ -563,6 +565,7 @@ sub EVENT_TIMER {
     plugin::EncounterScaling_Rescan($npc);
     plugin::LdonScaling_Rescan($npc);
     plugin::LuclinScaling_Rescan($npc);
+    plugin::PopScaling_Rescan($npc);
     return;
   }
 

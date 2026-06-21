@@ -35,8 +35,8 @@ function event_loot(e)
 	if e.self:Class() == "Magician" and e.item:GetID() == 19444 and e.corpse:GetNPCTypeID() == 86174 then
 		local qglobals = eq.get_qglobals(e.self);
 		if qglobals["mage_epic"] ~= nil and qglobals["mage_epic"] == "10" then
-			if qglobals["mage_chest_dl"] == nil then
-				eq.spawn2(893, 0, 0, e.self:GetX(), e.self:GetY(), e.self:GetZ(), e.self:GetHeading()); -- a chest (epic 2.0)
+			if eq.is_current_expansion_omens_of_war() and qglobals["mage_chest_dl"] == nil then
+				eq.spawn2(893, 0, 0, e.self:GetX(), e.self:GetY(), e.self:GetZ(), e.self:GetHeading()); -- a chest (epic 2.0) -- gated to OoW
 				eq.set_global("mage_chest_dl", "1", 5, "F");
 			end
 			return 0;

@@ -32,3 +32,14 @@ eq.spawn2(212074,0,0,1713,1206,627,264); -- a_warder_of_Arlyxir (212074)
 eq.spawn2(212074,0,0,1738,1206,627,264); -- a_warder_of_Arlyxir (212074)
 eq.spawn2(212074,0,0,1726,1146,612,264); -- a_warder_of_Arlyxir (212074)
 end
+
+function event_killed_merit(e)
+	local account_id = e.other:AccountID()
+	local char_name = e.other:GetCleanName()
+	eq.set_data("pop_arlyxir_" .. account_id, char_name)
+	local first_key = "first_kill_arlyxir"
+	if eq.get_data(first_key) == "" and not e.other:GetGM() then
+		eq.set_data(first_key, char_name)
+		eq.world_emote(15, "SERVER FIRST! " .. char_name .. " and their group have slain Arlyxir for the first time on this server!")
+	end
+end

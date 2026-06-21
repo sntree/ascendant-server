@@ -264,6 +264,104 @@ my %expedition_zones = (
         default_name => 'Eastern Wastes',
         has_raid_tier => 1,
         entry_override => { x => -375.17, y => -2667.32, z => 178.12, h => 140.75 }
+    },
+
+    # ---- Planes of Power ----
+    # NOTE: potimea/potimeb (Plane of Time) intentionally omitted — PoTime runs its own
+    # DZ/expedition + lockout system in potimeb/zone_status.lua and must not be given a raid tier.
+    'pojustice' => {
+        zone_version => 0,
+        default_name => 'The Plane of Justice',
+        has_raid_tier => 1
+    },
+    'podisease' => {
+        zone_version => 0,
+        default_name => 'The Plane of Disease',
+        has_raid_tier => 1
+    },
+    'ponightmare' => {
+        zone_version => 0,
+        default_name => 'The Plane of Nightmares',
+        has_raid_tier => 1
+    },
+    'poinnovation' => {
+        zone_version => 0,
+        default_name => 'The Plane of Innovation',
+        has_raid_tier => 1
+    },
+    'potorment' => {
+        zone_version => 0,
+        default_name => 'Torment, the Plane of Pain',
+        has_raid_tier => 1
+    },
+    'povalor' => {
+        zone_version => 0,
+        default_name => 'The Plane of Valor',
+        has_raid_tier => 1
+    },
+    'codecay' => {
+        zone_version => 0,
+        default_name => 'The Crypt of Decay',
+        has_raid_tier => 1
+    },
+    'bothunder' => {
+        zone_version => 0,
+        default_name => 'Bastion of Thunder',
+        has_raid_tier => 1
+    },
+    'postorms' => {
+        zone_version => 0,
+        default_name => 'The Plane of Storms'
+    },
+    'hohonora' => {
+        zone_version => 0,
+        default_name => 'The Halls of Honor',
+        has_raid_tier => 1
+    },
+    'hohonorb' => {
+        zone_version => 0,
+        default_name => 'The Temple of Marr',
+        has_raid_tier => 1
+    },
+    'solrotower' => {
+        zone_version => 0,
+        default_name => 'The Tower of Solusek Ro',
+        has_raid_tier => 1
+    },
+    'potactics' => {
+        zone_version => 0,
+        default_name => 'Drunder, the Fortress of Zek',
+        has_raid_tier => 1
+    },
+    'poair' => {
+        zone_version => 0,
+        default_name => 'The Plane of Air',
+        has_raid_tier => 1
+    },
+    'powater' => {
+        zone_version => 0,
+        default_name => 'The Plane of Water',
+        has_raid_tier => 1
+    },
+    'pofire' => {
+        zone_version => 0,
+        default_name => 'The Plane of Fire',
+        has_raid_tier => 1
+    },
+    'poeartha' => {
+        zone_version => 0,
+        default_name => 'The Plane of Earth',
+        has_raid_tier => 1
+    },
+    'poearthb' => {
+        zone_version => 0,
+        default_name => 'The Plane of Earth (Ragrax)',
+        has_raid_tier => 1
+    },
+    'nightmareb' => {
+        zone_version => 0,
+        default_name => 'The Lair of Terris Thule',
+        has_raid_tier => 1
     }
 );
 

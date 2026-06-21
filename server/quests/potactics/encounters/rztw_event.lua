@@ -16,46 +16,142 @@ local pp_counter			= 0;
 local pit_spawns			= {44462,44639,44640,44641,44642,44646,44654,44655,44656,44657,44664,44665,44666,44667,44674,44675,44676,44677,44678,44679,44681,44682,44687,44688,44702,44703,44705,44708,44709,44710,44711,44712,44713,44715,44716,44719,44720,44721,44722,44723,44724,44727,44728,44729,44737,44738,44742,44743,44744,44745,44746,44747,44748,44749,44758,44759,44760,44761,44762,44763,44764,44765,44775,44776,44780,44781,44782,44680};
 local elite_spawn_locs		= {[1] = {318,580,160,384}, [2] = {318,-560,160,384}};
 local pit_add_spawn_locs	= {[1] = {564,191,-291,0}, [2] = {815,233,-291,0}, [3] = {881,15,-291,0}, [4] = {683,-129,-291,0}, [5] = {859,-154,-291,0}, [6] = {773,-266,-291,0}, [7] = {625,314,-290,0} };
-local event_mob_list		= {214110,214108,214129,214113,214130,214114,214136,214052,214056,214057};
 local aggro_limit			= 72;	-- max clients on rztw hatelist before banish
+
+-- Pacing (tuned forgiving for a solo/small-group server).
+local trigger_window_ms		= 20 * 60 * 1000;	-- time allowed between the two Decorin kills
+local phase_fail_ms			= 45 * 60 * 1000;	-- per-phase stall timer before the trial resets
+
+-- Static spawn points (spawn2 ids) for the always-up event NPCs. They have very
+-- long respawn timers, so a reset must Repop them, not depop them, or the
+-- instance becomes unrecoverable (decoy Rallos would be gone for 3 days).
+local decoy_rz_spawn2		= 3266010;	-- #Rallos_Zek_ (decoy)
+local berik_spawn2			= 44543;	-- Decorin_Berik
+local grunhork_spawn2		= 44544;	-- Decorin_Grunhork
+
+-- Script-spawned encounter mobs cleared on a reset. The always-up statics
+-- (214052 decoy / 214056 Berik / 214057 Grunhork) are excluded here and
+-- restored via Repop in ResetEvent so the instance stays recoverable.
+local transient_mob_list	= {rz_vallon_id,rz_tallon_id,fake_vallon_id,warlord_id,elite_id,pit_add_1,pit_add_2};
+
+local function RepopSpawnPoint(spawn2_id)
+	local sp = eq.get_entity_list():GetSpawnByID(spawn2_id);
+	if sp then
+		sp:Enable();
+		sp:Repop(1);
+	end
+end
 
 local fake1_vz_entity;
 local fake2_vz_entity;
 local rztw_entity;
 
+-- Returns true only when we are inside a NORMAL (group) expedition instance.
+-- The open persistent zone (instance 0) and raid-tier DZs ("...: Raid") are
+-- allowed; a normal/group DZ is blocked so the Rallos Zek the Warlord trial
+-- (and therefore the Warlord himself) only spawns for raids.
+-- Mirrors the _get_dz_mode logic in quests/global/global_npc.pl.
+local function IsNormalExpedition()
+	if eq.get_zone_instance_id() == 0 then
+		return false; -- open zone: allow (matches global raid-target behavior)
+	end
+	local dz = eq.get_expedition();
+	if not dz or not dz.valid then
+		return false; -- no DZ info available: do not block
+	end
+	local name = dz:GetName();
+	if name and name:match(":%s*Raid$") then
+		return false; -- raid-tier DZ: allow
+	end
+	return true; -- group/normal DZ: block the trial
+end
+
 -- Encounter Start
 function Trigger_Death(e)
-	berik		= eq.get_entity_list():IsMobSpawnedByNpcTypeID(berik_id);
-	grunhork	= eq.get_entity_list():IsMobSpawnedByNpcTypeID(grunhork_id);
+	local berik		= eq.get_entity_list():IsMobSpawnedByNpcTypeID(berik_id);
+	local grunhork	= eq.get_entity_list():IsMobSpawnedByNpcTypeID(grunhork_id);
 
 	if not berik and not grunhork then
+		-- Both guards fell inside the trigger window: begin the trial.
+		eq.signal(controller_id, 61); -- clear the trigger window
+		if IsNormalExpedition() then
+			eq.zone_emote(MT.LightGray, "The Warlord stirs but does not rise. Rallos Zek will only face a full raid; this trial requires a Raid expedition.");
+			return;
+		end
 		Phase1Start();
+	else
+		-- First guard down: the other must be slain within the window or they regroup.
+		eq.signal(controller_id, 60); -- start/refresh the trigger window
+		eq.zone_emote(MT.LightGray, "One of the Decorin guards has fallen. The other must be slain soon, or they will regroup.");
 	end
 end
 
 function Controller_Timers(e)
 	eq.stop_timer(e.timer);
 	if e.timer == "fail" then
-		DepopEvent();
+		eq.zone_emote(MT.LightGray, "The Warlord's trial fades as time runs short. Decorin Berik and Decorin Grunhork stand ready once more.");
+		ResetEvent();
 	elseif e.timer == "pit_repop" then
 		RepopPit();
+	elseif e.timer == "trigger_window" then
+		-- The second Decorin guard was not slain in time; both regroup.
+		RepopSpawnPoint(berik_spawn2);
+		RepopSpawnPoint(grunhork_spawn2);
+		eq.zone_emote(MT.LightGray, "The Decorin guards regroup. They must be slain close together to begin the trial.");
 	end
 end
 
 function Controller_Signal(e)
 	if e.signal == 1 then -- Phase 1
-		eq.set_timer("fail", 20 * 60 * 1000);
+		eq.set_timer("fail", phase_fail_ms);
 	elseif e.signal == 2 then -- Phase 2
 		eq.stop_timer("fail");
-		eq.set_timer("fail", 15 * 60 * 1000);
+		eq.set_timer("fail", phase_fail_ms);
 	elseif e.signal == 3 then -- Phase 3
 		eq.stop_timer("fail");
-		eq.set_timer("fail", 20 * 60 * 1000);
+		eq.set_timer("fail", phase_fail_ms);
 	elseif e.signal == 11 then
 		DepopPit();
 		eq.set_timer("pit_repop", 40 * 60 * 1000);
 	elseif e.signal == 50 then -- stop fail timer
 		eq.stop_timer("fail");
+	elseif e.signal == 60 then -- start the Decorin trigger window
+		eq.set_timer("trigger_window", trigger_window_ms);
+	elseif e.signal == 61 then -- both guards down in time; clear the window
+		eq.stop_timer("trigger_window");
+	-- GM controls (sent from player.lua by a GM saying "rztw ...")
+	elseif e.signal == 90 then -- GM: full reset to the start (Phase 0)
+		GMReset();
+	elseif e.signal == 91 then -- GM: (re)start Phase 1 (Vallon/Tallon)
+		GMStartPhase(1);
+	elseif e.signal == 92 then -- GM: (re)start Phase 2 (decoy Rallos)
+		GMStartPhase(2);
+	elseif e.signal == 93 then -- GM: (re)start Phase 3 (spawn the Warlord)
+		GMStartPhase(3);
+	end
+end
+
+-- GM helper: wipe the whole event and restore the Phase 0 start state.
+function GMReset()
+	ResetEvent(); -- clears transient mobs and restores the static decoy + Decorin guards + pit
+	eq.zone_emote(MT.LightGray, "The Warlord's trial resets. Decorin Berik and Decorin Grunhork stand ready once more.");
+end
+
+-- GM helper: clear the field and jump straight to a chosen phase.
+function GMStartPhase(n)
+	ResetEvent(); -- baseline: transients cleared, decoy + Decorin guards + pit restored
+
+	if n == 1 then
+		Phase1Start();                                              -- spawns Vallon/Tallon + Phase 1 fail timer
+	elseif n == 2 then
+		eq.signal(fake_rz_id, 1);                                   -- activate the already-present decoy (Fake_RZ_Activate)
+		eq.zone_emote(MT.LightGray, "A tremor rumbles through the halls of Drunder.  Terror wells up inside you as you struggle to keep your footing.");
+		eq.signal(controller_id, 2);                                -- Phase 2 fail timer
+	elseif n == 3 then
+		eq.depop_all(fake_rz_id);                                   -- the decoy is gone once the Warlord is up
+		DepopPit();                                                 -- the pit is cleared during Phase 3
+		rztw_entity = eq.unique_spawn(warlord_id, 0, 0, 689, 0, -292, 130); -- #Rallos_Zek_the_Warlord
+		eq.signal(controller_id, 3);                                -- Phase 3 fail timer
 	end
 end
 
@@ -79,8 +175,7 @@ function VallonSplit(e)
 	end
 
 	if e.inc_hp_event == 98 then -- If Vallon heals up reset event.
-		if fake1_vz_entity.valid then fake1_vz_entity:Depop() end
-		if fake2_vz_entity.valid then fake2_vz_entity:Depop() end
+		eq.depop_all(fake_vallon_id); -- fresh lookup; stored entity refs may be dangling (use-after-free crash)
 		eq.set_next_hp_event(50);
 	end
 end
@@ -133,10 +228,15 @@ function SpawnElites()
 end
 
 function EliteAggro(e)
-	local fake_rallos_entity = eq.get_entity_list():GetMobByNpcTypeID(fake_rz_id);
 	e.self:SetRunning(true);
 	e.self:CastToNPC():MoveTo(261 + math.random(-10,10),-4 + math.random(-10,10),175,510,true);
-	e.self:AddToHateList(fake_rallos_entity:GetHateRandom(),1);
+	local fake_rallos_entity = eq.get_entity_list():GetMobByNpcTypeID(fake_rz_id);
+	if fake_rallos_entity and fake_rallos_entity.valid then
+		local victim = fake_rallos_entity:GetHateRandom();
+		if victim and victim.valid then
+			e.self:AddToHateList(victim, 1); -- guard: decoy or its hate list may be empty
+		end
+	end
 end
 
 function RepopPit()
@@ -210,11 +310,14 @@ end
 
 function Pit_Add_Spawn(e)
 	e.self:SetRunning(true);
-	e.self:MoveTo(rztw_entity:GetX(),rztw_entity:GetY(),rztw_entity:GetZ() - 25,rztw_entity:GetHeading(),true);
+	local warlord = eq.get_entity_list():GetMobByNpcTypeID(warlord_id); -- fresh lookup; stored ref may be dangling
+	if warlord and warlord.valid then
+		e.self:MoveTo(warlord:GetX(),warlord:GetY(),warlord:GetZ() - 25,warlord:GetHeading(),true);
+	end
 	eq.set_timer("depop", 15 * 60 * 1000);
 end
 
-function Pit_Add_Signal(e)
+function Pit_Add_Timer(e)
 	if e.timer == "depop" then
 		eq.depop();
 	end
@@ -229,11 +332,31 @@ function Pit_Add_Combat(e)
 	end
 end
 
--- Lose
+-- Lose / reset: clear only the script-spawned encounter mobs. The always-up
+-- statics (decoy Rallos + Decorin guards) are restored by ResetEvent so the
+-- instance stays recoverable.
 function DepopEvent()
-	for _,mob in pairs(event_mob_list) do
+	for _,mob in ipairs(transient_mob_list) do
 		eq.depop_all(mob);
 	end
+	eq.depop_all(pp_id);
+end
+
+-- Full reset back to the Phase 0 idle state. Clears transient mobs, then repops
+-- the long-timer static spawns (decoy Rallos + Decorin guards) and the pit so a
+-- failed/timed-out trial can be re-triggered instead of bricking the instance.
+function ResetEvent()
+	eq.stop_timer("fail");
+	eq.stop_timer("pit_repop");
+	DepopEvent();
+	eq.depop_all(fake_rz_id);			-- drop the (possibly activated) decoy...
+	RepopSpawnPoint(decoy_rz_spawn2);	-- ...and bring a fresh, inert one back now
+	RepopSpawnPoint(berik_spawn2);		-- ensure the Decorin trigger guards are up
+	RepopSpawnPoint(grunhork_spawn2);
+	RepopPit();
+	rztw_entity		= nil;
+	fake1_vz_entity	= nil;
+	fake2_vz_entity	= nil;
 end
 
 -- Win
@@ -294,10 +417,10 @@ function event_encounter_load(e)
 	eq.register_npc_event("rztw_event", Event.death_complete,	warlord_id,		EventWin);
 
 	eq.register_npc_event("rztw_event", Event.spawn,			pit_add_1,		Pit_Add_Spawn);
-	eq.register_npc_event("rztw_event", Event.signal,			pit_add_1,		Pit_Add_Signal);
+	eq.register_npc_event("rztw_event", Event.timer,			pit_add_1,		Pit_Add_Timer);
 	eq.register_npc_event("rztw_event", Event.combat,			pit_add_1,		Pit_Add_Combat);
 	eq.register_npc_event("rztw_event", Event.spawn,			pit_add_2,		Pit_Add_Spawn);
-	eq.register_npc_event("rztw_event", Event.signal,			pit_add_2,		Pit_Add_Signal);
+	eq.register_npc_event("rztw_event", Event.timer,			pit_add_2,		Pit_Add_Timer);
 	eq.register_npc_event("rztw_event", Event.combat,			pit_add_2,		Pit_Add_Combat);
 
 	-- A_Planar_Projection

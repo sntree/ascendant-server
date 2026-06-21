@@ -1,9 +1,15 @@
+# Instance-scoped lockout key so concurrent poearthb instances don't share the Rathe Council lockout.
+sub _rathe_key {
+   return $instanceid ? "${instanceid}_poeb_rathe" : "poeb_rathe";
+}
+
 sub EVENT_SPAWN { 
    quest::spawn_condition($zonesn,1,0); #Make sure we aren't up yet.
- if (defined $qglobals{poeb_rathe}){
+ my $rathe_key = _rathe_key();
+ if (defined $qglobals{$rathe_key}){
    quest::settimer("rathe",1); #waiting for the global to expire to pop rathe
    }
- if (!defined $qglobals{poeb_rathe}) { 
+ if (!defined $qglobals{$rathe_key}) { 
    quest::spawn_condition($zonesn,1,1); #Rathe pop 
    quest::settimer("avatar",1); 
    } 
@@ -14,12 +20,13 @@ sub EVENT_SIGNAL {
 }
 
 sub EVENT_TIMER { 
-  if ($timer eq "rathe" && !defined $qglobals{poeb_rathe}) {
+  my $rathe_key = _rathe_key();
+  if ($timer eq "rathe" && !defined $qglobals{$rathe_key}) {
       quest::stoptimer("rathe");
       quest::spawn_condition($zonesn,1,1); #Rathe pop 
       quest::settimer("avatar",1); #waiting for rathe to go down to pop avatar
   }
-  if ($timer eq "avatar" && !defined $qglobals{poeb_rathe}) { 
+  if ($timer eq "avatar" && !defined $qglobals{$rathe_key}) { 
       $boss = 0; 
       $check_boss = $entity_list->GetMobByNpcTypeID(222008); 
          if($check_boss) { 

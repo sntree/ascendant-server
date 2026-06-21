@@ -9,7 +9,9 @@ sub EVENT_ITEM {
   if(plugin::check_hasitem($client, 54286) && plugin::check_handin(\%itemcount, 52963 => 1)) { #Assembling the Staff, Sullied Gold Filigree
     quest::say("This filigree now shines from within with the holy light of Marr.");
     quest::summonitem(52953); #Purified Gold Filigree
-    quest::setglobal("anthone",0,2,"M30");
+    # Instance-scoped key so concurrent hohonora instances don't share the Anthone respawn lock.
+    my $anthone_key = $instanceid ? "${instanceid}_anthone" : "anthone";
+    quest::setglobal($anthone_key,0,2,"M30");
     quest::depop();
   }
   plugin::return_items(\%itemcount);

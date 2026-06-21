@@ -1,9 +1,10 @@
 #216048 - Fake (But still aggressive) Corirnav_the_Avatar_of_Water
 sub EVENT_SPAWN {
-  if(defined $qglobals{coirnav_done}) {
-    #deleted global when i respawn because my respawn can be shorter than 5 days
-    quest::delglobal("coirnav_done");
-  }
+  # Lockout key is instance-scoped (see #coirnav_controller.pl) so concurrent powater instances don't collide.
+  my $done_key = $instanceid ? "${instanceid}_coirnav_done" : "coirnav_done";
+  # Delete the lockout when the placeholder respawns; this NPC is not qglobal-enabled,
+  # so checking $qglobals here can leave stale keys behind and make the Guardian depop.
+  quest::delglobal($done_key);
 }
 
 sub EVENT_SIGNAL {

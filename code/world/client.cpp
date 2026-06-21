@@ -1434,6 +1434,14 @@ void Client::EnterWorld(bool TryBootup) {
 			// warn the zone we're coming
 			zone_server->IncomingClient(this);
 
+			// Arm a timeout for this handoff. If the (already running) zone never
+			// completes the handoff we would otherwise sit at "Entering World"
+			// forever, since enter_world_triggered stays set with no timer. On
+			// expiry, Process() calls TellClientZoneUnavailable() which resets the
+			// state so the client can retry instead of freezing. Disabled on the
+			// success path in Clearance().
+			autobootup_timeout.Start();
+
 			//tell the server not to trigger this multiple times before we get a zone unavailable
 			enter_world_triggered = true;
 		}
@@ -1585,6 +1593,9 @@ void Client::Clearance(int8 response)
 	LogInfo("Sending client to zone [{}] ([{}]:[{}]) at [{}]:[{}]", zonename, zone_id, instance_id, zsi->ip, zsi->port);
 	QueuePacket(outapp);
 	safe_delete(outapp);
+
+	// Handoff succeeded; disarm the safety timeout armed in EnterWorld().
+	autobootup_timeout.Disable();
 
 	if (cle)
 		cle->SetOnline(CLE_Status::Zoning);

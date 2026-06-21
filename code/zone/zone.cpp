@@ -1427,6 +1427,19 @@ bool Zone::SaveZoneCFG()
 }
 
 void Zone::AddAuth(ServerZoneIncomingClient_Struct* szic) {
+	LinkedListIterator<ZoneClientAuth_Struct*> iterator(client_auth_list);
+
+	iterator.Reset();
+	while (iterator.MoreElements()) {
+		ZoneClientAuth_Struct* zca = iterator.GetData();
+		if (zca->lsid == szic->lsid || strcasecmp(zca->charname, szic->charname) == 0) {
+			iterator.RemoveCurrent();
+			continue;
+		}
+
+		iterator.Advance();
+	}
+
 	auto zca = new ZoneClientAuth_Struct;
 	memset(zca, 0, sizeof(ZoneClientAuth_Struct));
 	zca->ip = szic->ip;
@@ -1489,17 +1502,25 @@ bool Zone::GetAuth(uint32 iIP, const char* iCharName, uint32* oWID, uint32* oAcc
 	while (iterator.MoreElements()) {
 		ZoneClientAuth_Struct* zca = iterator.GetData();
 		if (strcasecmp(zca->charname, iCharName) == 0) {
-				if(oWID)
+			if (oWID) {
 				*oWID = zca->wid;
-				if(oAccID)
+			}
+			if (oAccID) {
 				*oAccID = zca->accid;
-				if(oCharID)
+			}
+			if (oCharID) {
 				*oCharID = zca->charid;
-				if(oStatus)
+			}
+			if (oStatus) {
 				*oStatus = zca->admin;
-				if(oTellsOff)
+			}
+			if (oLSKey) {
+				strn0cpy(oLSKey, zca->lskey, sizeof(zca->lskey));
+			}
+			if (oTellsOff) {
 				*oTellsOff = zca->tellsoff;
-				zca->stale = true;
+			}
+			zca->stale = true;
 			return true;
 		}
 		iterator.Advance();

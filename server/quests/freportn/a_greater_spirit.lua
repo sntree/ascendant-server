@@ -2,7 +2,7 @@
 -- items: 1666
 
 function event_spawn(e)
-	eq.set_timer("despawn", 300);
+	eq.set_timer("despawn", 300 * 1000);
 end
 
 function event_say(e)

@@ -25,6 +25,7 @@
 #include "common/data_verification.h"
 #include "common/eqemu_logsys.h"
 #include "common/events/player_event_logs.h"
+#include "common/repositories/character_data_repository.h"
 #include "common/rulesys.h"
 #include "common/skills.h"
 #include "common/spdat.h"
@@ -585,8 +586,104 @@ bool Client::Process() {
 
 	if (client_state != CLIENT_LINKDEAD && !eqs->CheckState(ESTABLISHED)) {
 		LogInfo("Client linkdead: {}", name);
+		const bool disconnected_before_full_connect = conn_state != ClientConnectFinished;
+		if (disconnected_before_full_connect) {
+			LogInfo(
+				"Client linkdead before full connect: name [{}] char_id [{}] account_id [{}] conn_state [{}] client_state [{}] zone [{}] instance [{}] x [{}] y [{}] z [{}] heading [{}] bZoning [{}] instalog [{}] admin [{}] client_version [{}]",
+				GetName(),
+				CharacterID(),
+				AccountID(),
+				static_cast<int>(conn_state),
+				static_cast<int>(client_state),
+				zone ? zone->GetZoneID() : 0,
+				zone ? zone->GetInstanceID() : 0,
+				GetX(),
+				GetY(),
+				GetZ(),
+				GetHeading(),
+				bZoning,
+				instalog,
+				Admin(),
+				EQ::versions::ClientVersionName(ClientVersion())
+			);
+			ReportConnectingState();
 
-		if (Admin() > AccountStatus::GMAdmin) {
+			// Diagnostic: a client that drops at/after ZoneContentsSent matches the
+			// RoF2 bulk-spawn render crash signature. Dump every spawn's appearance
+			// vector while the offending entity is still resident in this zone, so the
+			// culprit spawn/field can be identified on the next recurrence.
+			if (zone && conn_state >= ZoneContentsSent) {
+				const auto &mob_list = entity_list.GetMobList();
+				LogInfo(
+					"[PreConnectCrashDump] BEGIN crashing_char [{}] char_id [{}] zone [{}] instance [{}] conn_state [{}] spawn_count [{}]",
+					GetName(),
+					CharacterID(),
+					zone->GetZoneID(),
+					zone->GetInstanceID(),
+					static_cast<int>(conn_state),
+					mob_list.size()
+				);
+
+				for (const auto &mob_entry : mob_list) {
+					Mob *m = mob_entry.second;
+					if (!m) {
+						continue;
+					}
+
+					std::string materials;
+					std::string heros_forge;
+					for (int material_slot = 0; material_slot < EQ::textures::materialCount; ++material_slot) {
+						if (material_slot) {
+							materials.append(",");
+							heros_forge.append(",");
+						}
+						materials.append(std::to_string(m->GetEquipmentMaterial(material_slot)));
+						heros_forge.append(std::to_string(m->GetHerosForgeModel(material_slot)));
+					}
+
+					const float dump_ddx    = m->GetX() - GetX();
+					const float dump_ddy    = m->GetY() - GetY();
+					const float dump_ddz    = m->GetZ() - GetZ();
+					const float dump_dist2  = (dump_ddx * dump_ddx) + (dump_ddy * dump_ddy) + (dump_ddz * dump_ddz);
+
+					LogInfo(
+						"[PreConnectCrashDump] spawn_id [{}] name [{}] kind [{}{}{}{}{}] race [{}] model [{}] gender [{}] class [{}] level [{}] size [{}] bodytype [{}] texture [{}] helm [{}] face [{}] pos [{:.1f},{:.1f},{:.1f},{:.1f}] dist2crash [{:.0f}] mats [{}] heros_forge [{}]",
+						m->GetID(),
+						m->GetCleanName(),
+						m->IsClient() ? "C" : "-",
+						m->IsNPC() ? "N" : "-",
+						m->IsPet() ? "P" : "-",
+						m->IsMerc() ? "M" : "-",
+						m->IsCorpse() ? "X" : "-",
+						m->GetRace(),
+						m->GetModel(),
+						m->GetGender(),
+						m->GetClass(),
+						m->GetLevel(),
+						m->GetSize(),
+						m->GetBodyType(),
+						m->GetTexture(),
+						m->GetHelmTexture(),
+						m->GetLuclinFace(),
+						m->GetX(),
+						m->GetY(),
+						m->GetZ(),
+						m->GetHeading(),
+						dump_dist2,
+						materials,
+						heros_forge
+					);
+				}
+
+				LogInfo(
+					"[PreConnectCrashDump] END crashing_char [{}] char_id [{}]",
+					GetName(),
+					CharacterID()
+				);
+			}
+		}
+
+		auto finish_immediate_disconnect = [&]() {
 			LeaveGroup();
 			OnDisconnect(true);
 			if (GetMerc()) {
@@ -597,14 +694,171 @@ bool Client::Process() {
 				guild_mgr.UpdateDbMemberOnline(CharacterID(), false);
 				guild_mgr.SendGuildMemberUpdateToWorld(GetName(), GuildID(), 0, time(nullptr));
 			}
+		};
+
+		auto zone_matches_rule_list = [&](std::string zone_list) {
+			if (!zone) {
+				return false;
+			}
+
+			Strings::Trim(zone_list);
+			if (zone_list.empty()) {
+				return false;
+			}
+
+			for (auto recovery_zone_id : Strings::Split(zone_list, ",")) {
+				Strings::Trim(recovery_zone_id);
+				if (recovery_zone_id.empty()) {
+					continue;
+				}
+
+				if (Strings::EqualFold(recovery_zone_id, "all")) {
+					return true;
+				}
+
+				if (Strings::ToUnsignedInt(recovery_zone_id) == zone->GetZoneID()) {
+					return true;
+				}
+			}
+
+			return false;
+		};
+
+		auto should_recover_pre_connect_crash = [&]() {
+			return disconnected_before_full_connect &&
+				conn_state >= ZoneContentsSent &&
+				zone_matches_rule_list(RuleS(Zone, PreConnectCrashRecoveryZones));
+		};
+
+		if (should_recover_pre_connect_crash()) {
+			const uint32 current_zone_id     = zone->GetZoneID();
+			const uint32 current_instance_id = zone->GetInstanceID();
+
+			auto try_recover_to = [&](uint32 dest_zone_id, float dest_x, float dest_y, float dest_z, float dest_heading, const char *source) -> bool {
+				if (!dest_zone_id || dest_zone_id == current_zone_id || !GetZone(dest_zone_id)) {
+					return false;
+				}
+
+				LogInfo(
+					"Pre-connect crash recovery: moving [{}] char_id [{}] from zone [{}] instance [{}] conn_state [{}] to zone [{}] via [{}]",
+					GetName(),
+					CharacterID(),
+					current_zone_id,
+					current_instance_id,
+					static_cast<int>(conn_state),
+					dest_zone_id,
+					source
+				);
+
+				m_pp.zone_id      = dest_zone_id;
+				m_pp.zoneInstance = 0;
+				m_Position.x      = dest_x;
+				m_Position.y      = dest_y;
+				m_Position.z      = dest_z;
+				m_Position.w      = dest_heading;
+
+				auto character_data = CharacterDataRepository::FindOne(database, CharacterID());
+				if (character_data.id) {
+					character_data.zone_id       = dest_zone_id;
+					character_data.zone_instance = 0;
+					character_data.x             = dest_x;
+					character_data.y             = dest_y;
+					character_data.z             = dest_z;
+					character_data.heading       = dest_heading;
+					CharacterDataRepository::UpdateOne(database, character_data);
+				} else {
+					LogInfo(
+						"Pre-connect crash recovery could not persist location for [{}] char_id [{}]: character row not found",
+						GetName(),
+						CharacterID()
+					);
+				}
+
+				finish_immediate_disconnect();
+				return true;
+			};
+
+			bool recovered = false;
+			const int recovery_zone_rule = RuleI(Zone, PreConnectCrashRecoveryZoneID);
+			const uint32 configured_recovery_zone_id = recovery_zone_rule > 0 ?
+				static_cast<uint32>(recovery_zone_rule) :
+				0;
+
+			if (configured_recovery_zone_id && configured_recovery_zone_id != current_zone_id) {
+				if (const auto recovery_zone = GetZone(configured_recovery_zone_id)) {
+					recovered = try_recover_to(
+						configured_recovery_zone_id,
+						recovery_zone->safe_x,
+						recovery_zone->safe_y,
+						recovery_zone->safe_z,
+						recovery_zone->safe_heading,
+						"recovery_zone_rule"
+					);
+				}
+			}
+
+			if (!recovered && configured_recovery_zone_id == current_zone_id) {
+				LogInfo(
+					"Pre-connect crash recovery: [{}] char_id [{}] already in configured recovery zone [{}], cleaning up without bind bounce",
+					GetName(),
+					CharacterID(),
+					current_zone_id
+				);
+				finish_immediate_disconnect();
+				return false;
+			}
+
+			if (!recovered) {
+				recovered =
+					try_recover_to(GetBindZoneID(0), GetBindX(0), GetBindY(0), GetBindZ(0), GetBindHeading(0), "primary_bind") ||
+					try_recover_to(GetBindZoneID(4), GetBindX(4), GetBindY(4), GetBindZ(4), GetBindHeading(4), "home_city_bind");
+			}
+
+			if (recovered) {
+				return false;
+			}
+
+			LogInfo(
+				"Pre-connect crash recovery skipped for [{}] char_id [{}]: no valid recovery destination from zone [{}] instance [{}]",
+				GetName(),
+				CharacterID(),
+				current_zone_id,
+				current_instance_id
+			);
+		}
+
+		if (Admin() > AccountStatus::GMAdmin) {
+			finish_immediate_disconnect();
 
 			return false;
 		}
 
-		OnDisconnect(true);
-
 		if (!linkdead_timer.Enabled()) {
-			linkdead_timer.Start(RuleI(Zone, ClientLinkdeadMS));
+			const bool use_fast_linkdead_cleanup = !disconnected_before_full_connect &&
+				zone_matches_rule_list(RuleS(Zone, FastLinkdeadCleanupZones));
+			const int linkdead_ms = disconnected_before_full_connect ?
+				RuleI(Zone, PreConnectLinkdeadMS) :
+				(use_fast_linkdead_cleanup ? RuleI(Zone, FastLinkdeadCleanupMS) : RuleI(Zone, ClientLinkdeadMS));
+
+			if (use_fast_linkdead_cleanup) {
+				LogInfo(
+					"Fast linkdead cleanup: name [{}] char_id [{}] account_id [{}] zone [{}] instance [{}] timeout_ms [{}]",
+					GetName(),
+					CharacterID(),
+					AccountID(),
+					zone ? zone->GetZoneID() : 0,
+					zone ? zone->GetInstanceID() : 0,
+					linkdead_ms
+				);
+			}
+
+			if (linkdead_ms <= 0) {
+				finish_immediate_disconnect();
+				return false;
+			}
+
+			OnDisconnect(true);
+			linkdead_timer.Start(linkdead_ms);
 			client_state = CLIENT_LINKDEAD;
 			AI_Start(CLIENT_LD_TIMEOUT);
 			SendAppearancePacket(AppearanceType::Linkdead, 1);

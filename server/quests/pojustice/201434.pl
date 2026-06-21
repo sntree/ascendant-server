@@ -17,23 +17,26 @@ sub EVENT_SAY
 		elsif($text=~/begin the trial of flame/i) {
 			if (!defined $flame) {
 				quest::say("Then begin.");
-				#Cast Penance of Flame
-        #quest::selfcast(1124);
+        my $moved = 0;
         $group = $entity_list->GetGroupByClient($client);
         if ($group) { 
           for ($count = 0; $count < $group->GroupCount(); $count++) {
             $pc = $group->GetMember($count);
             if ($pc && $pc->IsClient() && $pc->CalculateDistance($x,$y,$z) <= 50) {
-              $pc->MovePC(201,937,-703, 53, 300); # Zone: pojustice
+              $pc->MovePCInstance(201,$instanceid,937,-703, 53, 300); # Zone: pojustice
+              $moved++;
             }
           }
         }
+        if (!$moved) {
+          $client->MovePCInstance(201,$instanceid,937,-703, 53, 300); # Zone: pojustice
+        }
 				quest::settimer(201, 30);
+				#Spawn the event controller
+				quest::spawn2(201417, 0, 0, 880, -729, 55, 0); # NPC: #Event_Burning_Control
 				#Tell event burning control about it, 30 second delay
 				quest::signalwith(201417, 1, 30); # NPC: #Event_Burning_Control
 				$flame=1;
-				#Spawn the event controller
-				quest::spawn2(201417, 0, 0, 880, -729, 55, 0); # NPC: #Event_Burning_Control
 			}
 			else {
 				quest::say("I'm sorry, the Trial of Flame is currently unavilable to you.");
@@ -91,7 +94,7 @@ sub EVENT_SAY
 				$client->Message(4,"You receive a character flag!");
 			}
 		}
-		elsif($text=~/i seek knowledge/i) {
+		elsif($text=~/\bknowledge\b/i) {
 			if (plugin::check_hasitem($client, 31842) && plugin::check_hasitem($client, 31796) && plugin::check_hasitem($client, 31960) && plugin::check_hasitem($client, 31845) && plugin::check_hasitem($client, 31844) && plugin::check_hasitem($client, 31846) ) { 
 				if (!plugin::check_hasitem($client, 31599)) {
 					quest::summonitem(31599); # Item: The Mark of Justice

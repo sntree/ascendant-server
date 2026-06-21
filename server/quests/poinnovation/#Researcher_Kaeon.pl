@@ -1,3 +1,6 @@
+# Instance-scoped qglobal key so concurrent poinnovation instances run the test event independently.
+sub _poi_key { return $instanceid ? "${instanceid}_poiend" : "poiend"; }
+
 sub EVENT_SPAWN {
   quest::spawn_condition($zonesn,1,0);
   quest::spawn_condition($zonesn,2,0);
@@ -5,7 +8,7 @@ sub EVENT_SPAWN {
 }
 
 sub EVENT_SAY {
-  if ($text=~/hail/i && defined $qglobals{poiend}) {
+  if ($text=~/hail/i && defined $qglobals{_poi_key()}) {
     quest::say("Don't bother me, I'm conducting a test");
   }
   
@@ -20,7 +23,7 @@ sub EVENT_SAY {
     quest::depop(206081);
     quest::selfcast(1091);
     quest::spawn(206081,0,0,0,0,0);
-    quest::setglobal("poiend",1,3,"H3");
+    quest::setglobal(_poi_key(),1,3,"H3");
   }
 }
 sub EVENT_ITEM {

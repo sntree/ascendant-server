@@ -1,11 +1,14 @@
 sub EVENT_SPAWN {
-  quest::settimer(4,1);
+  quest::settimer("arrival_check",1);
+  quest::settimer("failsafe_depop",180);
 }
 
 sub EVENT_TIMER {
-  if($timer == 4 && $x == 1125 && $y == 0) {
+  if($timer eq "arrival_check" && abs($npc->GetX() - 1125) <= 20 && abs($npc->GetY()) <= 20) {
     quest::signalwith(206046,1,1); # NPC: Manaetic_Behemoth
-    $npc->CastSpell(2321,206070); # Spell: Energy Burst
-    quest::depop_withtimer();
+    $npc->CastSpell(2321,$npc->GetID()); # Spell: Energy Burst
+    quest::depop();
+  } elsif($timer eq "failsafe_depop") {
+    quest::depop();
   }
 }

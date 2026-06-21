@@ -11,6 +11,12 @@
 
 my $bucket_name = "marked_passage_loc";
 
+my %polymorph_size_overrides = (
+    33632 => 10, # Illusion: Bertox
+    33633 => 10, # Illusion: Saryrn
+    33634 => 10, # Illusion: Vallon
+);
+
 # Forward declaration
 sub ApplyAscendantAuras;
 
@@ -26,6 +32,9 @@ my @lobby_locs = (
 sub EVENT_ENTERZONE { #message only appears in Cities / Pok and wherever the Wayfarer Camps (LDON) is in.  This message won't appear in the player's home city.
   # Auto-reapply Ascendant Auras on zone
   ApplyAscendantAuras();
+
+  # Auto-unlock trainable class skills without touching existing skill values
+  plugin::AutoSkills_Process($client);
 
   # The Tomeless — visual aura on zone-in (disabled: investigating client crash on guild lobby cold-load)
   #if (quest::get_data("tomeless_" . $client->CharacterID())) {
@@ -377,6 +386,11 @@ sub EVENT_SPELL_FADE {
 
 sub EVENT_SAY {
 
+    if ($text =~ /^#popflags\b/i) {
+        plugin::PoPFlags_HandleSay($client, $text, $status);
+        return;
+    }
+
     if ($text =~ /^#myaacredits$/i) {
         plugin::ShowAllAACredits($client);
     }
@@ -641,6 +655,10 @@ sub EVENT_CAST {
     # Handle legitimate movement spells
     plugin::HandleMovementSpell($client, $spell_id);
 
+    if (exists $polymorph_size_overrides{$spell_id}) {
+        $client->ChangeSize($polymorph_size_overrides{$spell_id}, 1);
+    }
+
     # Ascendant Buff Satchel - wand click (spell 17782)
     if ($spell_id == plugin::GetSatchelClaspSpellID()) {
         plugin::ApplyBuffsFromSatchel($client);
@@ -747,6 +765,8 @@ sub TryLoreAABonus {
 
 sub EVENT_LEVEL_UP {
     our ($ulevel, $name);
+    plugin::AutoSkills_Process($client);
+
     if ($ulevel == 60) {
         my $first_key = "first_level60_class_" . $client->GetClass();
         unless (quest::get_data($first_key) || $client->GetGM()) {

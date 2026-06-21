@@ -1,6 +1,6 @@
 function event_spawn(e)
   eq.set_timer('xegoevent', 6 * 1000);
-  eq.set_timer('muzlakh', 60);
+  eq.set_timer('muzlakh', 60 * 1000);
 end
 
 
@@ -49,8 +49,9 @@ function event_timer(e)
     eq.spawn2(215047,0,0,-12,481,1440.25,374); --untargettable #A_Djinni_Air_Defender
     eq.spawn2(215047,0,0,-5,455,1440.20,374); --untargettable #A_Djinni_Air_Defender
     eq.spawn2(215047,0,0,-5,393,1440.25,374); --untargettable #A_Djinni_Air_Defender
-    eq.spawn2(215056,0,0,64,24.70,1467.4,386.8); -- NPC: #Xegony_the_Queen_of_Air
+    eq.unique_spawn(215056,0,0,64,24.70,1467.4,386.8); -- NPC: #Xegony_the_Queen_of_Air
   elseif (e.timer == 'muzlakh') then
+    eq.stop_timer('muzlakh');
     eq.unique_spawn(215053,0,0,-602,15,1448,385.5); --#Muzlakh_the_Chosen
   end
 end

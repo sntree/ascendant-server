@@ -9,6 +9,9 @@ sub EVENT_SAY {
 if($text=~/hail/i)
 	{
 	quest::setglobal("pop_pod_grimmus_planar_projection", 1, 5, "F");
+	if ((defined $qglobals{pop_pod_alder_fuirstel} && $qglobals{pop_pod_alder_fuirstel} == 1) || (defined $pop_pod_alder_fuirstel && $pop_pod_alder_fuirstel == 1)) {
+		quest::set_zone_flag(200);
+	}
 	$client->Message(4,"You receive a character flag!");
 	}
 {

@@ -673,7 +673,8 @@ function evt_wdtrpmn_timer(e)
 		eq.signal(spiritist_andro_shimi, 10);	-- Signal event failure to Spiritist_Andro_Shimi
 		eq.depop(warder_of_life_npc);			-- Depop Warder of Life
 		eq.signal(warder_of_death_npc, 10);		-- Depop Warder of death		
-		eq.depop_all(154157); --depops Reanimated Guardians if up
+			eq.depop_all(154157); --depops Reanimated Guardians if up
+			eq.depop_all(154158); --depops diseased grimling Life Ward adds if up
 		eq.depop_with_timer();
 	elseif e.timer == "setup" then
 		EventSetup();
@@ -726,6 +727,7 @@ function ChantSumCheck(e,A,B)
 			activate(e.self);
 			eq.signal(WDTrpMn,2);	-- signals to  stop spawning of spell jammers
 			eq.depop_all(154157);	-- NPC: a_reanimated_prisoner 
+			eq.depop_all(154158);	-- NPC: a_diseased_grimling
 			eq.stop_timer("adds");
 		end
 	end

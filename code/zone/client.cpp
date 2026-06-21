@@ -740,7 +740,21 @@ Client::~Client() {
 	}
 
 	if(conn_state != ClientConnectFinished) {
-		LogDebug("Client [{}] was destroyed before reaching the connected state:", GetName());
+		LogInfo(
+			"Client [{}] was destroyed before reaching the connected state: char_id [{}] account_id [{}] conn_state [{}] zone [{}] instance [{}] x [{}] y [{}] z [{}] heading [{}] bZoning [{}] client_version [{}]",
+			GetName(),
+			CharacterID(),
+			AccountID(),
+			static_cast<int>(conn_state),
+			zone ? zone->GetZoneID() : 0,
+			zone ? zone->GetInstanceID() : 0,
+			GetX(),
+			GetY(),
+			GetZ(),
+			GetHeading(),
+			bZoning,
+			EQ::versions::ClientVersionName(ClientVersion())
+		);
 		ReportConnectingState();
 	}
 
@@ -898,31 +912,31 @@ void Client::SendLogoutPackets() {
 void Client::ReportConnectingState() {
 	switch(conn_state) {
 	case NoPacketsReceived:		//havent gotten anything
-		LogDebug("Client has not sent us an initial zone entry packet");
+		LogInfo("Client has not sent us an initial zone entry packet");
 		break;
 	case ReceivedZoneEntry:		//got the first packet, loading up PP
-		LogDebug("Client sent initial zone packet, but we never got their player info from the database");
+		LogInfo("Client sent initial zone packet, but we never got their player info from the database");
 		break;
 	case PlayerProfileLoaded:	//our DB work is done, sending it
-		LogDebug("We were sending the player profile, tributes, tasks, spawns, time and weather, but never finished");
+		LogInfo("We were sending the player profile, tributes, tasks, spawns, time and weather, but never finished");
 		break;
 	case ZoneInfoSent:		//includes PP, tributes, tasks, spawns, time and weather
-		LogDebug("We successfully sent player info and spawns, waiting for client to request new zone");
+		LogInfo("We successfully sent player info and spawns, waiting for client to request new zone");
 		break;
 	case NewZoneRequested:	//received and sent new zone request
-		LogDebug("We received client's new zone request, waiting for client spawn request");
+		LogInfo("We received client's new zone request, waiting for client spawn request");
 		break;
 	case ClientSpawnRequested:	//client sent ReqClientSpawn
-		LogDebug("We received the client spawn request, and were sending objects, doors, zone points and some other stuff, but never finished");
+		LogInfo("We received the client spawn request, and were sending objects, doors, zone points and some other stuff, but never finished");
 		break;
 	case ZoneContentsSent:		//objects, doors, zone points
-		LogDebug("The rest of the zone contents were successfully sent, waiting for client ready notification");
+		LogInfo("The rest of the zone contents were successfully sent, waiting for client ready notification");
 		break;
 	case ClientReadyReceived:	//client told us its ready, send them a bunch of crap like guild MOTD, etc
-		LogDebug("We received client ready notification, but never finished Client::CompleteConnect");
+		LogInfo("We received client ready notification, but never finished Client::CompleteConnect");
 		break;
 	case ClientConnectFinished:	//client finally moved to finished state, were done here
-		LogDebug("Client is successfully connected");
+		LogInfo("Client is successfully connected");
 		break;
 	};
 }
@@ -7013,6 +7027,16 @@ void Client::SendZonePoints()
 	}
 
 	FastQueuePacket(&outapp);
+
+	if (zone && zone->GetZoneID() == Zones::GUILDLOBBY) {
+		LogInfo(
+			"Guild Lobby zone-in payload: target [{}] instance [{}] phase [zone_points_sent] count [{}] packet_size [{}]",
+			GetName(),
+			zone->GetInstanceID(),
+			count,
+			zpsize
+		);
+	}
 }
 
 void Client::SendTargetCommand(uint32 EntityID)

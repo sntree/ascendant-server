@@ -19,8 +19,11 @@
 #include "entity.h"
 
 #include "common/data_verification.h"
+#include "common/eq_constants.h"
 #include "common/features.h"
 #include "common/guilds.h"
+#include "common/races.h"
+#include "common/textures.h"
 #include "zone/bot.h"
 #include "zone/dialogue_window.h"
 #include "zone/dynamic_zone.h"
@@ -42,6 +45,165 @@ extern Zone *zone;
 extern volatile bool is_zone_loaded;
 extern WorldServer worldserver;
 extern uint32 numclients;
+
+namespace {
+
+bool IsGuildLobbyZoneInTrace(Client *client)
+{
+	return client && zone && zone->GetZoneID() == Zones::GUILDLOBBY;
+}
+
+bool IsExpectedPlayerRace(uint16 race)
+{
+	switch (race) {
+	case Race::Human:
+	case Race::Barbarian:
+	case Race::Erudite:
+	case Race::WoodElf:
+	case Race::HighElf:
+	case Race::DarkElf:
+	case Race::HalfElf:
+	case Race::Dwarf:
+	case Race::Troll:
+	case Race::Ogre:
+	case Race::Halfling:
+	case Race::Gnome:
+	case Race::Iksar:
+	case Race::VahShir:
+	case Race::Froglok2:
+	case Race::Drakkin:
+		return true;
+	default:
+		return false;
+	}
+}
+
+bool IsHighRiskGuildLobbySpawn(Mob *spawn, bool is_delayed_packet)
+{
+	if (!spawn) {
+		return false;
+	}
+
+	const auto race = spawn->GetRace();
+
+	bool high_material = false;
+	bool hero_forge    = false;
+	for (uint8 slot = EQ::textures::textureBegin; slot < EQ::textures::materialCount; ++slot) {
+		high_material = high_material || spawn->GetTextureProfileMaterial(slot) > 10000;
+		hero_forge    = hero_forge || spawn->GetTextureProfileHeroForgeModel(slot) != 0;
+	}
+
+	return (
+		is_delayed_packet ||
+		spawn->IsPet() ||
+		spawn->IsMerc() ||
+		spawn->IsCorpse() ||
+		race == Race::Campfire ||
+		(spawn->IsClient() && !IsExpectedPlayerRace(race)) ||
+		(!spawn->IsClient() && race >= 400) ||
+		spawn->GetTexture() > 20 ||
+		(spawn->GetHelmTexture() > 30 && spawn->GetHelmTexture() != 0xFF) ||
+		spawn->GetSize() <= 0.0f ||
+		spawn->GetSize() > 20.0f ||
+		high_material ||
+		hero_forge
+	);
+}
+
+// Mirrors the zone_matches_rule_list lambda in client_process.cpp. Returns true
+// when the current zone's ID is present in the comma-delimited rule value, or the
+// value contains 'all'. Empty/blank disables.
+bool ZoneMatchesRuleList(std::string zone_list)
+{
+	if (!zone) {
+		return false;
+	}
+
+	Strings::Trim(zone_list);
+	if (zone_list.empty()) {
+		return false;
+	}
+
+	for (auto entry : Strings::Split(zone_list, ",")) {
+		Strings::Trim(entry);
+		if (entry.empty()) {
+			continue;
+		}
+
+		if (Strings::EqualFold(entry, "all")) {
+			return true;
+		}
+
+		if (Strings::ToUnsignedInt(entry) == zone->GetZoneID()) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+// Spawns that the RoF2 client cannot reliably instantiate when delivered in the
+// bulk OP_ZoneSpawns packet. These are sent as individual delayed spawn packets after
+// CLIENT_CONNECTED instead (mirrors the existing illusion/Tree handling).
+// Gated by Zone:DelayMassSpawnUnsafeBulkSpawnsZones; the viewing client's own pet/merc
+// is exempted at the call site to preserve owner zone-in UX.
+// Player texture 255 is normal, so the high texture check only applies to non-clients.
+bool IsMassSpawnUnsafe(Mob *spawn)
+{
+	if (!spawn) {
+		return false;
+	}
+
+	const auto race = spawn->GetRace();
+	bool high_material = false;
+	bool hero_forge    = false;
+	for (uint8 slot = EQ::textures::textureBegin; slot < EQ::textures::materialCount; ++slot) {
+		high_material = high_material || spawn->GetTextureProfileMaterial(slot) > 10000;
+		hero_forge    = hero_forge || spawn->GetTextureProfileHeroForgeModel(slot) != 0;
+	}
+
+	return (
+		spawn->IsPet() ||
+		spawn->IsMerc() ||
+		spawn->IsCorpse() ||
+		race == Race::Campfire ||
+		(spawn->IsClient() && !IsExpectedPlayerRace(race)) ||
+		(!spawn->IsClient() && race >= 400) ||
+		(!spawn->IsClient() && spawn->GetTexture() > 20) ||
+		(spawn->GetHelmTexture() > 30 && spawn->GetHelmTexture() != 0xFF) ||
+		high_material ||
+		hero_forge ||
+		spawn->GetSize() <= 0.0f ||
+		spawn->GetSize() > 20.0f
+	);
+}
+
+const char *GetSpawnTraceType(Mob *spawn)
+{
+	if (!spawn) {
+		return "unknown";
+	}
+
+	if (spawn->IsClient()) {
+		return "client";
+	}
+
+	if (spawn->IsMerc()) {
+		return "merc";
+	}
+
+	if (spawn->IsCorpse()) {
+		return "corpse";
+	}
+
+	if (spawn->IsNPC()) {
+		return "npc";
+	}
+
+	return "mob";
+}
+
+}
 
 Entity::Entity()
 {
@@ -1354,6 +1516,16 @@ void EntityList::SendZoneSpawnsBulk(Client *client)
 	NewSpawn_Struct     ns{};
 	Mob                 *spawn;
 	EQApplicationPacket *app;
+	const bool          guild_lobby_trace = IsGuildLobbyZoneInTrace(client);
+	uint32              visible_count = 0;
+	uint32              bulk_count = 0;
+	uint32              delayed_count = 0;
+	uint32              client_count = 0;
+	uint32              npc_count = 0;
+	uint32              corpse_count = 0;
+	uint32              pet_count = 0;
+	uint32              merc_count = 0;
+	uint32              high_risk_count = 0;
 
 	uint32 max_spawns = 100;
 
@@ -1364,6 +1536,17 @@ void EntityList::SendZoneSpawnsBulk(Client *client)
 	auto            bulk_zone_spawn_packet = new BulkZoneSpawnPacket(client, max_spawns);
 	const glm::vec4 &client_position       = client->GetPosition();
 	const float     distance_max           = (600.0 * 600.0);
+	const bool      delay_mass_spawn_unsafe = ZoneMatchesRuleList(RuleS(Zone, DelayMassSpawnUnsafeBulkSpawnsZones));
+
+	if (guild_lobby_trace) {
+		LogInfo(
+			"Guild Lobby zone-in payload: target [{}] instance [{}] phase [zone_spawns_start] mob_list [{}] max_spawns_per_packet [{}]",
+			client->GetName(),
+			zone->GetInstanceID(),
+			mob_list.size(),
+			max_spawns
+		);
+	}
 
 	for (auto & it : mob_list) {
 		spawn = it.second;
@@ -1376,16 +1559,69 @@ void EntityList::SendZoneSpawnsBulk(Client *client)
 
 			bool is_delayed_packet = (
 				DistanceSquared(client_position, spawn_position) > distance_max ||
-				(spawn->IsClient() && (spawn->GetRace() == Race::MinorIllusion || spawn->GetRace() == Race::Tree))
+				(spawn->IsClient() && (spawn->GetRace() == Race::MinorIllusion || spawn->GetRace() == Race::Tree)) ||
+				(
+					delay_mass_spawn_unsafe &&
+					spawn->GetOwnerID() != client->GetID() &&
+					IsMassSpawnUnsafe(spawn)
+				)
 			);
 
+			visible_count++;
+			if (spawn->IsClient()) {
+				client_count++;
+			}
+			if (spawn->IsNPC()) {
+				npc_count++;
+			}
+			if (spawn->IsCorpse()) {
+				corpse_count++;
+			}
+			if (spawn->IsPet()) {
+				pet_count++;
+			}
+			if (spawn->IsMerc()) {
+				merc_count++;
+			}
+
+			if (guild_lobby_trace && IsHighRiskGuildLobbySpawn(spawn, is_delayed_packet)) {
+				high_risk_count++;
+				LogInfo(
+					"Guild Lobby zone-in payload high-risk spawn: target [{}] instance [{}] spawn [{}] spawn_id [{}] npc_type_id [{}] type [{}] delayed [{}] race [{}] model [{}] base_race [{}] gender [{}] texture [{}] helm [{}] size [{}] body [{}] level [{}] class [{}] owner_id [{}] primary_material [{}] secondary_material [{}] primary_hero [{}] secondary_hero [{}]",
+					client->GetName(),
+					zone->GetInstanceID(),
+					spawn->GetCleanName(),
+					spawn->GetID(),
+					spawn->GetNPCTypeID(),
+					GetSpawnTraceType(spawn),
+					is_delayed_packet,
+					spawn->GetRace(),
+					spawn->GetModel(),
+					spawn->GetBaseRace(),
+					spawn->GetGender(),
+					spawn->GetTexture(),
+					spawn->GetHelmTexture(),
+					spawn->GetSize(),
+					spawn->GetBodyType(),
+					spawn->GetLevel(),
+					spawn->GetClass(),
+					spawn->GetOwnerID(),
+					spawn->GetTextureProfileMaterial(EQ::textures::weaponPrimary),
+					spawn->GetTextureProfileMaterial(EQ::textures::weaponSecondary),
+					spawn->GetTextureProfileHeroForgeModel(EQ::textures::weaponPrimary),
+					spawn->GetTextureProfileHeroForgeModel(EQ::textures::weaponSecondary)
+				);
+			}
+
 			if (is_delayed_packet) {
+				delayed_count++;
 				app = new EQApplicationPacket;
 				spawn->CreateSpawnPacket(app);
 				client->QueuePacket(app, true, Client::CLIENT_CONNECTED);
 				safe_delete(app);
 			}
 			else {
+				bulk_count++;
 				memset(&ns, 0, sizeof(NewSpawn_Struct));
 				spawn->FillSpawnStruct(&ns, client);
 				bulk_zone_spawn_packet->AddSpawn(&ns);
@@ -1420,6 +1656,23 @@ void EntityList::SendZoneSpawnsBulk(Client *client)
 	}
 
 	safe_delete(bulk_zone_spawn_packet);
+
+	if (guild_lobby_trace) {
+		LogInfo(
+			"Guild Lobby zone-in payload: target [{}] instance [{}] phase [zone_spawns_done] visible [{}] bulk [{}] delayed [{}] clients [{}] npcs [{}] corpses [{}] pets [{}] mercs [{}] high_risk [{}]",
+			client->GetName(),
+			zone->GetInstanceID(),
+			visible_count,
+			bulk_count,
+			delayed_count,
+			client_count,
+			npc_count,
+			corpse_count,
+			pet_count,
+			merc_count,
+			high_risk_count
+		);
+	}
 }
 
 //this is a hack to handle a broken spawn struct
@@ -1468,12 +1721,42 @@ void EntityList::SendZoneCorpsesBulk(Client *client)
 
 void EntityList::SendZoneObjects(Client *client)
 {
+	const bool guild_lobby_trace = IsGuildLobbyZoneInTrace(client);
+	uint32 object_count = 0;
+
 	auto it = object_list.begin();
 	while (it != object_list.end()) {
 		auto app = new EQApplicationPacket;
 		it->second->CreateSpawnPacket(app);
+		object_count++;
+		if (guild_lobby_trace) {
+			LogInfo(
+				"Guild Lobby zone-in payload object: target [{}] instance [{}] object_id [{}] db_id [{}] model [{}] type [{}] icon [{}] item_id [{}] size [{}] x [{}] y [{}] z [{}]",
+				client->GetName(),
+				zone->GetInstanceID(),
+				it->second->GetID(),
+				it->second->GetDBID(),
+				it->second->GetModelName(),
+				it->second->GetType(),
+				it->second->GetIcon(),
+				it->second->GetItemID(),
+				it->second->GetSize(),
+				it->second->GetX(),
+				it->second->GetY(),
+				it->second->GetZ()
+			);
+		}
 		client->FastQueuePacket(&app);
 		++it;
+	}
+
+	if (guild_lobby_trace) {
+		LogInfo(
+			"Guild Lobby zone-in payload: target [{}] instance [{}] phase [zone_objects_done] count [{}]",
+			client->GetName(),
+			zone->GetInstanceID(),
+			object_count
+		);
 	}
 }
 

@@ -2,7 +2,9 @@
 #Signals coirnav_controller with the Event start
 
 sub EVENT_SPAWN {
-  if(defined $qglobals{coirnav_done} && $qglobals{coirnav_done} == 3) {
+  # Lockout key is instance-scoped (see #coirnav_controller.pl) so concurrent powater instances don't collide.
+  my $done_key = $instanceid ? "${instanceid}_coirnav_done" : "coirnav_done";
+  if(defined $qglobals{$done_key} && $qglobals{$done_key} == 3) {
     quest::settimer(1,3);
   }
 }

@@ -1907,11 +1907,18 @@ bool Client::SwapItem(MoveItem_Struct* move_in) {
 				ndh_item_data.append(StringFormat(", nodrop=%s(%u)", (ndh_item->NoDrop == 0 ? "true" : "false"), ndh_item->NoDrop));
 			}
 		}
-		LogError("WorldKick() of Player [{}](id:[{}], acct:[{}]) due to 'NoDrop Hack' detection >> SlotID:[{}], ItemData:[{}]",
+		const auto message = fmt::format(
+			"Rejected no-drop item move to restricted destination. SlotID:[{}], ItemData:[{}]",
+			src_slot_id,
+			ndh_item_data.c_str()
+		);
+
+		RecordPlayerEventLog(PlayerEvent::POSSIBLE_HACK, PlayerEvent::PossibleHackEvent{ .message = message });
+
+		LogError("WorldKick() of Player [{}](id:[{}], acct:[{}]) due to 'NoDrop Hack' detection; item preserved >> SlotID:[{}], ItemData:[{}]",
 			GetName(), CharacterID(), AccountID(), src_slot_id, ndh_item_data.c_str());
 		ndh_inst = nullptr;
 
-		DeleteItemInInventory(src_slot_id);
 		WorldKick();
 		return false;
 	}

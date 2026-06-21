@@ -29,7 +29,7 @@ end
 
 
 function event_spawn(e)
-	eq.set_timer("despawn", 2700 * 1000);
+	eq.set_timer("despawn", 7200 * 1000); -- 2h idle-despawn (forgiving; only runs while unengaged)
 	e.self:Shout("Leave now foolish mortal you have begun to send events in motion that you cannot possibly understand!");
 end
 

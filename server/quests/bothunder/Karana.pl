@@ -14,7 +14,7 @@ sub EVENT_SAY {
 			$client->Message(4,"You receive a character flag!");
 		}
 		
-		if ($text=~/send me on my path/i) {
+		if ($text=~/send me/i) {
 			 $npc->CastSpell(797, $userid); # Spell: GM Gate
 		}
 	}

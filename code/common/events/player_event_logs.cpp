@@ -1131,10 +1131,13 @@ void PlayerEventLogs::SetSettingsDefaults()
 	m_settings[PlayerEvent::BARTER_TRANSACTION].event_enabled        = 1;
 	m_settings[PlayerEvent::EVOLVE_ITEM].event_enabled               = 1;
 	m_settings[PlayerEvent::SPEECH].event_enabled                    = 0;
+	m_settings[PlayerEvent::SPELL_CAST].event_enabled                = 1;
 
 	for (int i = PlayerEvent::GM_COMMAND; i != PlayerEvent::MAX; i++) {
 		m_settings[i].retention_days = RETENTION_DAYS_DEFAULT;
 	}
+
+	m_settings[PlayerEvent::SPELL_CAST].retention_days = 2;
 }
 
 void PlayerEventLogs::LoadEtlIds()

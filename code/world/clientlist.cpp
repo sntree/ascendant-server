@@ -478,15 +478,19 @@ void ClientList::ClientUpdate(ZoneServer *zoneserver, ServerClientList_Struct *s
 		}
 		iterator.Advance();
 	}
-	if (scl->remove == 2) {
-		cle = new ClientListEntry(GetNextCLEID(), zoneserver, scl, CLE_Status::Online);
+	if (scl->remove) {
+		LogClientListDetail(
+			"[ClientUpdate] Ignoring remove [{}] for unknown wid [{}] charid [{}] name [{}] AccountID [{}]",
+			scl->remove,
+			scl->wid,
+			scl->charid,
+			scl->name,
+			scl->AccountID
+		);
+		return;
 	}
-	else if (scl->remove == 1) {
-		cle = new ClientListEntry(GetNextCLEID(), zoneserver, scl, CLE_Status::Zoning);
-	}
-	else {
-		cle = new ClientListEntry(GetNextCLEID(), zoneserver, scl, CLE_Status::InZone);
-	}
+
+	cle = new ClientListEntry(GetNextCLEID(), zoneserver, scl, CLE_Status::InZone);
 
 	LogClientListDetail(
 		"[ClientUpdate] "

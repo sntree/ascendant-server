@@ -44,3 +44,16 @@ sub EVENT_DEATH_COMPLETE {
 	quest::stoptimer("fail_timer");
 	quest::signalwith(209033,2,1); #stop portals from spawning
 }
+
+sub EVENT_KILLED_MERIT {
+	my $account_id = $client->AccountID();
+	my $char_name = $client->GetCleanName();
+
+	quest::set_data("pop_agnarr_" . $account_id, $char_name);
+
+	my $first_key = "first_kill_agnarr";
+	unless (quest::get_data($first_key) || $client->GetGM()) {
+		quest::set_data($first_key, $char_name . "|" . $uguild);
+		quest::we(15, "SERVER FIRST! " . $char_name . " <" . $uguild . "> and their group have slain Agnarr the Storm Lord for the first time on this server!");
+	}
+}

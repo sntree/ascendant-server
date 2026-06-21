@@ -16,6 +16,50 @@ my $group = undef;
 my $count = undef;
 my $pc = undef;
 
+my @trial_mark_flags = (
+   [31842, "pop_poj_execution"],
+   [31796, "pop_poj_flame"],
+   [31960, "pop_poj_lashing"],
+   [31845, "pop_poj_stoning"],
+   [31844, "pop_poj_torture"],
+   [31846, "pop_poj_hanging"],
+);
+
+sub GrantJusticeTrialFlag {
+   my ($item_id) = @_;
+
+   foreach my $mark (@trial_mark_flags) {
+      my ($mark_item_id, $flag) = @$mark;
+      next unless ($item_id == $mark_item_id);
+
+      my $already_flagged = (defined $qglobals{pop_poj_tribunal} && defined $qglobals{$flag});
+      quest::setglobal("pop_poj_tribunal", 1, 5, "F");
+      quest::setglobal($flag, 1, 5, "F");
+      return $already_flagged ? 0 : 1;
+   }
+
+   return 0;
+}
+
+sub GrantJusticeTrialFlagsFromHeldMarks {
+   my ($client_obj) = @_;
+   my $granted = 0;
+
+   foreach my $mark (@trial_mark_flags) {
+      my ($item_id, $flag) = @$mark;
+      if (plugin::check_hasitem($client_obj, $item_id)) {
+         $granted += GrantJusticeTrialFlag($item_id);
+      }
+   }
+
+   if ($granted) {
+      $client_obj->Message(4,"You have completed a trial - impressive for mortals. You can tell Mavuin that we will hear his plea. We will seek him out as time befits us.");
+      $client_obj->Message(15,"You receive a character flag!");
+   }
+
+   return $granted;
+}
+
 sub EVENT_SPAWN {
    #Depop any existing controllers
 	quest::depopall(201425);
@@ -27,6 +71,9 @@ sub EVENT_SAY
 {   
    if(defined $qglobals{pop_poj_mavuin}) {
       if($text=~/Hail/i) {
+         if (GrantJusticeTrialFlagsFromHeldMarks($client)) {
+            return;
+         }
 	 quest::emote(" fixes you with a dark, peircing gaze. 'What do you want, mortal? Are you [" . quest::saylink("prepared") . "]?");
       }
       
@@ -37,25 +84,27 @@ sub EVENT_SAY
       elsif($text=~/begin the trial of execution/i) {
          if (!defined $in_progress) {
             quest::say("Then begin.");
-            $in_progress = 1;
-            quest::settimer("delay_start", 30);
-            #Tell Event_Execution_Control about it
-            quest::signalwith(201425, 1, 0); # NPC: #Event_Execution_Control
-
-            #Cast Penance of Execution
-            #quest::selfcast(1127); #required db edit targettype = 41
+            my $moved = 0;
             $group = $entity_list->GetGroupByClient($client);
             if ($group) { 
               for ($count = 0; $count < $group->GroupCount(); $count++) {
                 $pc = $group->GetMember($count);
                 if ($pc && $pc->IsClient() && $pc->CalculateDistance($x,$y,$z) <= 50) {
-                  $pc->MovePC(201,254,-1053, 73, 300); # Zone: pojustice
+                  $pc->MovePCInstance(201,$instanceid,254,-1053, 73, 300); # Zone: pojustice
+                  $moved++;
                 }
               }
+            }
+            if (!$moved) {
+              $client->MovePCInstance(201,$instanceid,254,-1053, 73, 300); # Zone: pojustice
             }
             $group = undef;
             $pc = undef;
             $count = undef;
+            $in_progress = 1;
+            quest::settimer("delay_start", 30);
+            #Tell Event_Execution_Control about it
+            quest::signalwith(201425, 1, 0); # NPC: #Event_Execution_Control
          }
          
          else {
@@ -63,7 +112,10 @@ sub EVENT_SAY
          }
       }
       
-      elsif($text=~/what evidence of Mavuin/i) {
+      elsif($text=~/evidence/i) {
+         if (GrantJusticeTrialFlagsFromHeldMarks($client)) {
+            return;
+         }
          if(plugin::check_hasitem($client, 31842)) {
             $client->Message(4,"You have completed a trial - impressive for mortals. You can tell Mavuin that we will hear his plea. We will seek him out as time befits us.");
             quest::setglobal("pop_poj_tribunal", 1, 5, "F");
@@ -106,7 +158,7 @@ sub EVENT_SAY
             $client->Message(15,"You receive a character flag!");
          }
       }
-		elsif($text=~/i seek knowledge/i) {
+		elsif($text=~/\bknowledge\b/i) {
 			if (plugin::check_hasitem($client, 31842) && plugin::check_hasitem($client, 31796) && plugin::check_hasitem($client, 31960) && plugin::check_hasitem($client, 31845) && plugin::check_hasitem($client, 31844) && plugin::check_hasitem($client, 31846) ) { 
 				if (!plugin::check_hasitem($client, 31599)) {
 					quest::summonitem(31599); # Item: The Mark of Justice
@@ -207,4 +259,3 @@ sub EVENT_ITEM
    }
    plugin::return_items(\%itemcount);
 }
-

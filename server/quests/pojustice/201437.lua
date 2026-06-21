@@ -37,7 +37,7 @@ function event_say(e)
                trial_group_id = trial_group:GetID();
             else
                client_id = e.other:CharacterID();
-               e.other:MovePC(201, trial_x, trial_y, trial_z, trial_h); -- Zone: pojustice
+               e.other:MovePCInstance(201, eq.get_zone_instance_id(), trial_x, trial_y, trial_z, trial_h); -- Zone: pojustice
             end
 
             -- Spawn the Controller
@@ -58,7 +58,7 @@ function event_say(e)
             e.other:Message(MT.LightBlue, "You receive a character flag!");
          end
 
-		elseif (e.message:findi("i seek knowledge") ) then
+		elseif (e.message:findi("knowledge") ) then
 			local marks = { 31796, 31842, 31844, 31845, 31846 , 31960 }
 			local has_six = 1;
 			for k,v in pairs(marks) do
@@ -90,7 +90,7 @@ function event_timer(e)
       else
           local client_e = eq.get_entity_list():GetClientByCharID(client_id);
           if (client_e ~= nil and client_e.valid) then
-              client_e:MovePC( 201, 456, 825, 9, 360 ); -- Zone: pojustice
+              client_e:MovePCInstance(201, eq.get_zone_instance_id(), 456, 825, 9, 360 ); -- Zone: pojustice
               client_e:Message(MT.BrightBlue, "A mysterious force translocates you.");
           end
       end
@@ -167,7 +167,7 @@ function MoveGroup(trial_group, src_x, src_y, src_z, distance, tgt_x, tgt_y, tgt
                -- check the distance and port them up if close enough
                if (client_v:CalculateDistance(src_x, src_y, src_z) <= distance) then
                   -- port the player up
-                  client_v:MovePC(201, tgt_x, tgt_y, tgt_z, tgt_h); -- Zone: pojustice
+                  client_v:MovePCInstance(201, eq.get_zone_instance_id(), tgt_x, tgt_y, tgt_z, tgt_h); -- Zone: pojustice
 					
                   if (msg) then
                      client_v:Message(MT.BrightBlue, msg);

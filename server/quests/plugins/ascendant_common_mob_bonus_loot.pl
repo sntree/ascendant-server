@@ -1,8 +1,8 @@
 ##############################################################################
 # Common Mob Bonus Loot Plugin (Expansion-Aware)
 ##############################################################################
-# Purpose: 1% chance for ANY mob to drop a bonus item from merged
-#          expansion pools. Uses shared tier upgrade logic.
+# Purpose: Low chance for ANY mob to roll bonus loot from a rare_spawn
+#          NPC loottable in the same expansion and level block.
 #
 # Called from global_npc.pl:
 #   plugin::common_mob_bonus_loot($npc, $npc_level, $zoneid);
@@ -13,32 +13,94 @@ sub common_mob_bonus_loot {
     my $level = shift;
     my $zoneid = shift;
 
-    # Configuration: 1% chance for bonus loot
-    my $bonus_chance = 1;
+    return unless $npc;
+    return unless $level;
+    return unless $zoneid;
+
+    # Configuration: 0.33% chance for bonus loot, then 10% chance for a 2nd roll
+    my $bonus_chance = 0.0033;
+    my $second_roll_chance = 0.10;
+    my $required_item_attempts = 25;
+    my $common_item_threshold = 5; # reroll if every bonus item appears on >5 rare_spawn NPCs
 
     # Roll for bonus loot chance
-    return unless (int(rand(100)) < $bonus_chance);
+    return unless rand() < $bonus_chance;
 
-    # Get item pool for this level restricted to the zone's expansion
-    my @item_pool = plugin::get_merged_pool($level, $zoneid);
+    if (!plugin::uses_rare_loottable_mischief($zoneid)) {
+        my @item_pool = plugin::get_merged_pool($level, $zoneid);
+        return unless @item_pool;
 
-    return if (scalar(@item_pool) == 0);
-
-    # Select random item from pool
-    my $selected_item = $item_pool[int(rand(scalar(@item_pool)))];
-
-    # Get tier config and DB handle
-    my $tier_cfg = plugin::common_tier_config();
-    my $dbh = plugin::get_loot_dbh() if $tier_cfg->{enable};
-    my $rare_count = 0;
-
-    if ($tier_cfg->{enable} && $dbh) {
-        $selected_item = plugin::roll_tier_upgrade($selected_item, $tier_cfg, \$rare_count, $dbh);
+        my $selected_item = $item_pool[int(rand(scalar(@item_pool)))];
+        $npc->AddItem($selected_item, 1);
+        quest::debug(
+            "Common mob static bonus loot: " .
+            $npc->GetCleanName() .
+            " added item " .
+            $selected_item
+        );
+        return;
     }
 
-    # Add the item
-    $npc->AddItem($selected_item, 1);
-    quest::debug("Common mob bonus loot: Added item $selected_item (NPC level $level)");
+    my $source = plugin::add_rare_spawn_loottable_roll($npc, $level, $zoneid, 1, $required_item_attempts, $common_item_threshold);
+    if ($source) {
+        plugin::pop_mischief_zone_shout(
+            $zoneid,
+            $npc->GetCleanName() .
+            " trash surprise roll 1 used " .
+            plugin::format_rare_spawn_source($source) .
+            plugin::format_bonus_roll_attempts($source) .
+            plugin::format_bonus_roll_fallback($source) .
+            "; added " .
+            plugin::format_bonus_roll_items($source->{added_items}) .
+            "."
+        );
+        quest::debug(
+            "Common mob bonus loottable roll: " .
+            $npc->GetCleanName() .
+            " rolled source NPC " .
+            $source->{id} .
+            " (" .
+            $source->{name} .
+            ") loottable " .
+                $source->{loottable_id}
+        );
+    }
+    else {
+        plugin::pop_mischief_zone_shout(
+            $zoneid,
+            $npc->GetCleanName() .
+            " trash surprise triggered but no eligible rare_spawn source was found for level " .
+            $level .
+            "."
+        );
+    }
+
+    if ($source && rand() < $second_roll_chance) {
+        my $second_source = plugin::add_rare_spawn_loottable_roll($npc, $level, $zoneid, 1, $required_item_attempts, $common_item_threshold);
+        if ($second_source) {
+            plugin::pop_mischief_zone_shout(
+                $zoneid,
+                $npc->GetCleanName() .
+                " trash surprise roll 2 used " .
+                plugin::format_rare_spawn_source($second_source) .
+                plugin::format_bonus_roll_attempts($second_source) .
+                plugin::format_bonus_roll_fallback($second_source) .
+                "; added " .
+                plugin::format_bonus_roll_items($second_source->{added_items}) .
+                "."
+            );
+            quest::debug(
+                "Common mob bonus loottable roll: " .
+                $npc->GetCleanName() .
+                " rolled 2nd source NPC " .
+                $second_source->{id} .
+                " (" .
+                $second_source->{name} .
+                ") loottable " .
+                $second_source->{loottable_id}
+            );
+        }
+    }
 }
 
 return 1;

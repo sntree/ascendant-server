@@ -899,6 +899,6 @@ sub EVENT_SAY {
    {if($text=~/return/i && !defined $pumpkin)
       {
       quest::say("Very well.");
-      quest::movepc(201,456,825,9); # Zone: pojustice
+      quest::MovePCInstance(201,$instanceid,456,825,9); # Zone: pojustice
       }
    }}} 

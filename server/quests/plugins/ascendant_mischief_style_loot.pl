@@ -1,8 +1,8 @@
 ##############################################################################
 # Rare/Named Mob Bonus Loot Plugin (Expansion-Aware)
 ##############################################################################
-# Purpose: Guaranteed bonus loot for rare/named spawns from merged
-#          expansion pools. Uses shared tier upgrade logic.
+# Purpose: Guaranteed bonus loottable roll for rare/named spawns from a
+#          random rare_spawn NPC in the same expansion and level block.
 #
 # Called from global_npc.pl:
 #   plugin::rare_levelblock_loot($npc, $npc_level, $zoneid);
@@ -13,43 +13,89 @@ sub rare_levelblock_loot {
     my $level = shift;
     my $zoneid = shift;
 
+    return unless $npc;
+    return unless $level;
+    return unless $zoneid;
+
     # Configuration: Drop chances
-    my $first_item_chance = 100;   # 100% = always drop 1 item
-    my $second_item_chance = 25;   # 25% chance for a 2nd item
+    my $second_roll_chance = 0.10; # 10% chance for a 2nd rare loottable roll
+    my $required_item_attempts = 25;
+    my $common_item_threshold = 5; # reroll if every bonus item appears on >5 rare_spawn NPCs
 
-    # Get item pool for this level restricted to the zone's expansion
-    my @item_pool = plugin::get_merged_pool($level, $zoneid);
+    if (!plugin::uses_rare_loottable_mischief($zoneid)) {
+        my @item_pool = plugin::get_merged_pool($level, $zoneid);
+        return unless @item_pool;
 
-    return if (scalar(@item_pool) == 0);
-
-    # Get tier config and DB handle
-    my $tier_cfg = plugin::rare_tier_config();
-    my $dbh;
-    $dbh = plugin::get_loot_dbh() if $tier_cfg->{enable};
-    my $rare_item_upgraded = 0;
-
-    # First item drop (guaranteed if chance = 100)
-    if (int(rand(100)) < $first_item_chance) {
         my $selected_item = $item_pool[int(rand(scalar(@item_pool)))];
-
-        if ($tier_cfg->{enable} && $dbh) {
-            $selected_item = plugin::roll_tier_upgrade($selected_item, $tier_cfg, \$rare_item_upgraded, $dbh);
-        }
-
         $npc->AddItem($selected_item, 1);
-        quest::debug("Mischief bonus loot: Added item $selected_item (NPC level $level)");
+        quest::debug(
+            "Mischief rare static pool roll: " .
+            $npc->GetCleanName() .
+            " added item " .
+            $selected_item
+        );
+        return;
     }
 
-    # Second item drop (optional, based on second_item_chance)
-    if (int(rand(100)) < $second_item_chance) {
-        my $selected_item = $item_pool[int(rand(scalar(@item_pool)))];
+    my $source = plugin::add_rare_spawn_loottable_roll($npc, $level, $zoneid, 1, $required_item_attempts, $common_item_threshold);
+    if ($source) {
+        plugin::pop_mischief_zone_shout(
+            $zoneid,
+            $npc->GetCleanName() .
+            " bonus roll 1 used " .
+            plugin::format_rare_spawn_source($source) .
+            plugin::format_bonus_roll_attempts($source) .
+            plugin::format_bonus_roll_fallback($source) .
+            "; added " .
+            plugin::format_bonus_roll_items($source->{added_items}) .
+            "."
+        );
+        quest::debug(
+            "Mischief rare loottable roll: " .
+            $npc->GetCleanName() .
+            " rolled source NPC " .
+            $source->{id} .
+            " (" .
+            $source->{name} .
+            ") loottable " .
+                $source->{loottable_id}
+        );
+    }
+    else {
+        plugin::pop_mischief_zone_shout(
+            $zoneid,
+            $npc->GetCleanName() .
+            " bonus roll failed: no eligible rare_spawn source for level " .
+            $level .
+            "."
+        );
+    }
 
-        if ($tier_cfg->{enable} && $dbh) {
-            $selected_item = plugin::roll_tier_upgrade($selected_item, $tier_cfg, \$rare_item_upgraded, $dbh);
+    if ($source && rand() < $second_roll_chance) {
+        my $second_source = plugin::add_rare_spawn_loottable_roll($npc, $level, $zoneid, 1, $required_item_attempts, $common_item_threshold);
+        if ($second_source) {
+            plugin::pop_mischief_zone_shout(
+                $zoneid,
+                $npc->GetCleanName() .
+                " bonus roll 2 used " .
+                plugin::format_rare_spawn_source($second_source) .
+                plugin::format_bonus_roll_attempts($second_source) .
+                plugin::format_bonus_roll_fallback($second_source) .
+                "; added " .
+                plugin::format_bonus_roll_items($second_source->{added_items}) .
+                "."
+            );
+            quest::debug(
+                "Mischief rare loottable roll: " .
+                $npc->GetCleanName() .
+                " rolled 2nd source NPC " .
+                $second_source->{id} .
+                " (" .
+                $second_source->{name} .
+                ") loottable " .
+                $second_source->{loottable_id}
+            );
         }
-
-        $npc->AddItem($selected_item, 1);
-        quest::debug("Mischief bonus loot: Added 2nd item $selected_item (NPC level $level)");
     }
 }
 

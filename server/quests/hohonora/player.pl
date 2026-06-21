@@ -1,11 +1,14 @@
 sub EVENT_ENTERZONE {
+  # Instance-scoped epic cooldown/spawn-lock keys so concurrent hohonora instances don't collide.
+  my $anthone_key = $instanceid ? "${instanceid}_anthone" : "anthone";
+  my $mage_key    = $instanceid ? "${instanceid}_mage_epic_hoh" : "mage_epic_hoh";
   if(($class eq "Enchanter") && plugin::check_hasitem($client, 52963)) { #Sullied Gold Filigree
-    if(!$entity_list->GetNPCByNPCTypeID(211047) && !defined($qglobals{anthone})) {
+    if(!$entity_list->GetNPCByNPCTypeID(211047) && !defined($qglobals{$anthone_key})) {
       quest::spawn2(211047,0,0,-1853,2479,-110,40); ##Anthone_Chapin
     }
   }
 
-  if(($class eq "Magician") && !defined($qglobals{mage_epic_hoh}) && defined($qglobals{mage_epic}) && $client->GetGlobal("mage_epic") ==10) {
+  if(($class eq "Magician") && !defined($qglobals{$mage_key}) && defined($qglobals{mage_epic}) && $client->GetGlobal("mage_epic") ==10) {
 	$client->Message(15, "Your staff begins to glow");
   }
 }
@@ -24,12 +27,12 @@ sub EVENT_CLICKDOOR {
 sub EVENT_LOOT {
   if (($class eq "Magician") && $looted_id == 19547) {  
 	if (defined($qglobals{mage_epic}) && $qglobals{mage_epic} == 10) {
-	  if (!defined($qglobals{mage_chest_hoh})) {
+	  if (quest::is_current_expansion_omens_of_war() && !defined($qglobals{mage_chest_hoh})) {
 			quest::setglobal("mage_chest_hoh", "1", 5, "F"); 
 			$x = $client->GetX();
 			$y = $client->GetY();
 			$z = $client->GetZ();
-			quest::spawn2(893,0,0,$x,$y,$z,0); # NPC: a_chest
+			quest::spawn2(893,0,0,$x,$y,$z,0); # NPC: a_chest -- gated to OoW
 		}
 	  return 0;
 	}

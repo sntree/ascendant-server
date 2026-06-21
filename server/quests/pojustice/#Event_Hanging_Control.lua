@@ -59,7 +59,7 @@ function event_signal(e)
 	
 	if (e.signal == 7) then
 		depop_prisoners();
-		eq.get_entity_list():MessageClose(e.self, false, 120, MT.BrightBlue, "Success!");
+		eq.get_entity_list():MessageClose(e.self, false, 300, MT.BrightBlue, "Success!");
 		
 		-- Signal the Tribunal that the Group was Successful
 		eq.signal(201436, 1); -- NPC: The_Tribunal Hanging Trial
@@ -73,7 +73,7 @@ function event_signal(e)
 		local prisoner = spirits_to_prisoners[ e.signal ];
 		table.remove( spirits_to_prisoners, e.signal );
 
-		eq.get_entity_list():MessageClose(e.self, false, 120, MT.BrightBlue, "The Prisoner grasps, taking in large breaths and coughing as the invisible noose disappears.");
+		eq.get_entity_list():MessageClose(e.self, false, 300, MT.BrightBlue, "The Prisoner grasps, taking in large breaths and coughing as the invisible noose disappears.");
 
 		-- Can kill off the fail and feign death timers assocated with the 
 		-- prisoner.
@@ -102,7 +102,7 @@ function event_timer(e)
 		eq.stop_timer(e.timer);
 		spawn_mobs();
 		spawn_spirit(201460);	
-		eq.get_entity_list():MessageClose(e.self, false, 120, MT.BrightBlue, "The prisoner begins to choke as an invisible noose tightens around his neck.");
+		eq.get_entity_list():MessageClose(e.self, false, 300, MT.BrightBlue, "The prisoner begins to choke as an invisible noose tightens around his neck.");
 		
 		-- Spawn the 2nd Spirit 40 seconds after the Wave begins
 		eq.set_timer("next_spirit", 40000);
@@ -110,7 +110,7 @@ function event_timer(e)
 	elseif (e.timer == "next_spirit" ) then
 		eq.stop_timer(e.timer);
 		spawn_spirit(201474);
-		eq.get_entity_list():MessageClose(e.self, false, 120, MT.BrightBlue, "The prisoner begins to choke as an invisible noose tightens around his neck.");
+		eq.get_entity_list():MessageClose(e.self, false, 300, MT.BrightBlue, "The prisoner begins to choke as an invisible noose tightens around his neck.");
 
 	elseif (e.timer == "fdtimer_201471" or e.timer == "fdtimer_201472" or e.timer == "fdtimer_201473") then
 		eq.stop_timer(e.timer);
@@ -122,7 +122,7 @@ function event_timer(e)
 		eq.get_entity_list():GetMobByNpcTypeID(tonumber(npc_to_feign)):SetAppearance(3);
 
 		--eq.get_entity_list():MessageClose(e.self, false, 120, MT.BrightBlue, "The Prisoner clutches at [her/her] throat, trying to desperately to breathe.");
-		eq.get_entity_list():MessageClose(e.self, false, 120, MT.BrightBlue, "The Prisoner clutches at their throat, trying to desperately to breathe.");
+		eq.get_entity_list():MessageClose(e.self, false, 300, MT.BrightBlue, "The Prisoner clutches at their throat, trying to desperately to breathe.");
 
 	elseif (e.timer == "failtimer_201471" or e.timer == "failtimer_201472" or e.timer == "failtimer_201473") then
 		-- If the Event has failed; then Kill all the Potential Fail Timers.
@@ -130,7 +130,7 @@ function event_timer(e)
 		eq.stop_timer("failtimer_201472");
 		eq.stop_timer("failtimer_201473");
 
-		eq.get_entity_list():MessageClose(e.self, false, 120, MT.BrightBlue, "The prisoner gives one final twitch and suddenly becomes still, its limbs no longer flailing.  You have failed.");
+		eq.get_entity_list():MessageClose(e.self, false, 300, MT.BrightBlue, "The prisoner gives one final twitch and suddenly becomes still, its limbs no longer flailing. You have failed.");
 
 		-- Signal the Tribunal that the Group has failed
 		eq.signal(201436, 2); -- NPC: The_Tribunal Hanging Trial
@@ -222,7 +222,7 @@ function MoveGroup(trial_group, src_x, src_y, src_z, distance, tgt_x, tgt_y, tgt
 					-- check the distance and port them up if close enough
 					if (client_v:CalculateDistance(src_x, src_y, src_z) <= distance) then
 						-- port the player up
-						client_v:MovePC(201, tgt_x, tgt_y, tgt_z, tgt_h); -- Zone: pojustice
+						client_v:MovePCInstance(201, eq.get_zone_instance_id(), tgt_x, tgt_y, tgt_z, tgt_h); -- Zone: pojustice
 					end
 				end
 			end

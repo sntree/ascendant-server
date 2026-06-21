@@ -4,5 +4,5 @@
 
 
 function event_spawn(e)
-	eq.spawn_condition("codecay",0,1,0);
+	eq.spawn_condition("codecay", eq.get_zone_instance_id(), 1, 0);
 end

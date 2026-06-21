@@ -10,7 +10,7 @@ local started			= false;
 local final_round		= false;
 
 function Vallon_Spawn(e)
-	final_round = false;
+	final_round = started and vz_counter >= 5;
 	eq.signal(vz_controller_id, 1, 1 * 1000);	-- NPC: #vz_controller (214112)
 	if e.self:GetSpawnPointID() == 369024 then
 		e.self:SetLevel(75);

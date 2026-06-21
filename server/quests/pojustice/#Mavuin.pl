@@ -15,6 +15,10 @@ if($text=~/plea your case/i && !defined $qglobals{pop_poj_mavuin})
         quest::setglobal("pop_poj_mavuin", 1, 5, "F");
         $client->Message(7,"You receive a character flag!");
 	}
+if($text=~/Hail/i && defined $qglobals{pop_poj_mavuin} && !defined $qglobals{pop_poj_tribunal})
+	{
+	quest::say("Please take my plea before the Tribunal and complete one of their trials. Only then will they hear my case.");
+	}
 if($text=~/Hail/i && defined $qglobals{pop_poj_tribunal} && defined $qglobals{pop_poj_mavuin})
 	{
 	quest::say("So you have pleaded my case to the Tribunal, I am most thankful. I hope that they will listen to my case soon and release me. The knowledge that I promised you is this. The followers in the Plane of Tranquility are trying to find information on what has happened to Zebuxoruk. What I know is that he has been captured for a second time. If you want to find out more information I believe you should seek an audience with Karana and Mithaniel Marr. I can only assume that they were present at the time of his capture and know why this has taken place. Also seek from Marr a way to translate the divine language. Only with it can you understand the writing of the gods. There is no more that I can tell you, but thank you once again for your attempt in returning my freedom.");

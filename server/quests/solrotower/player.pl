@@ -4,14 +4,13 @@
 
 sub EVENT_CLICKDOOR {
   if($doorid == 44 || $doorid == 45 || $doorid == 47 || $doorid == 48){
-    if($qglobals{pop_sol_ro_jiva} == 1 && $qglobals{pop_sol_ro_dresolik} == 1 && $qglobals{pop_sol_ro_arlyxir} == 1 && $qglobals{pop_sol_ro_rizlona} == 1 && $qglobals{pop_sol_ro_xuzl} == 1 && $qglobals{pop_tactics_ralloz} == 1) {
-      quest::movepc(212,0,-847,244); # Zone: solrotower
+    if($qglobals{pop_sol_ro_jiva} == 1 && $qglobals{pop_sol_ro_dresolik} == 1 && $qglobals{pop_sol_ro_arlyxir} == 1 && $qglobals{pop_sol_ro_rizlona} == 1 && $qglobals{pop_sol_ro_xuzl} == 1) {
+      quest::MovePCInstance(212,$instanceid,0,-847,244); # Zone: solrotower
     }
-    elsif($qglobals{pop_sol_ro_jiva} != 1 || $qglobals{pop_sol_ro_dresolik} != 1 || $qglobals{pop_sol_ro_arlyxir} != 1 || $qglobals{pop_sol_ro_rizlona} != 1 || $qglobals{pop_sol_ro_xuzl} != 1 || $qglobals{pop_tactics_ralloz} != 1) {
+    elsif($qglobals{pop_sol_ro_jiva} != 1 || $qglobals{pop_sol_ro_dresolik} != 1 || $qglobals{pop_sol_ro_arlyxir} != 1 || $qglobals{pop_sol_ro_rizlona} != 1 || $qglobals{pop_sol_ro_xuzl} != 1) {
       $client->Message(13, "You lack the will to use this object!");
     }
   }
-  $qglobals{pop_tactics_ralloz}=undef;
   $qglobals{pop_sol_ro_arlyxir}=undef;
   $qglobals{pop_sol_ro_dresolik}=undef;
   $qglobals{pop_sol_ro_jiva}=undef;

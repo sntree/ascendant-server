@@ -98,8 +98,8 @@ end
 function event_death_complete(e)
     local entity_list = eq.get_entity_list();
     -- if someone comes along before he resets, I guess you get the globals set ... oh well
-    if (spawn_chest) then
-        eq.spawn2(893, 0, 0, e.self:GetX(), e.self:GetY(), e.self:GetZ(), e.self:GetHeading()); -- a chest (epic 2.0)
+    if (spawn_chest and eq.is_current_expansion_omens_of_war()) then
+        eq.spawn2(893, 0, 0, e.self:GetX(), e.self:GetY(), e.self:GetZ(), e.self:GetHeading()); -- a chest (epic 2.0) -- gated to OoW
         eq.target_global("mnk20_oot_chest", "1", "F", 0, char_id, 0);
     end
     if (update_global) then

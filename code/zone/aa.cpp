@@ -1027,14 +1027,14 @@ void Client::SendAlternateAdvancementRank(int aa_id, int level) {
 	for(auto &prereq : rank->prereqs) {
 		int prereq_aa_id = prereq.first;
 
-		// If the character has the universal equivalent but NOT the original at required rank,
-		// substitute the universal AA ID in the packet so the client enables the purchase button.
+		// If the character has the mapped counterpart but not the direct prereq,
+		// substitute the counterpart so the client enables the purchase button.
 		auto alt_it = rank->prereq_alternates.find(prereq.first);
 		if (alt_it != rank->prereq_alternates.end()) {
-			AA::Ability *orig_ability = zone->GetAlternateAdvancementAbility(prereq.first);
-			bool has_original = orig_ability && GetAA(orig_ability->first_rank_id) >= prereq.second;
+			AA::Ability *direct_ability = zone->GetAlternateAdvancementAbility(prereq.first);
+			bool has_direct = direct_ability && GetAA(direct_ability->first_rank_id) >= prereq.second;
 
-			if (!has_original) {
+			if (!has_direct) {
 				AA::Ability *alt_ability = zone->GetAlternateAdvancementAbility(alt_it->second);
 				if (alt_ability && GetAA(alt_ability->first_rank_id) >= prereq.second) {
 					prereq_aa_id = alt_it->second;
@@ -1772,7 +1772,7 @@ bool Mob::CanPurchaseAlternateAdvancementRank(AA::Rank *rank, bool check_price, 
 		if (prereq_ability) {
 			auto ranks = GetAA(prereq_ability->first_rank_id);
 
-			// Check alternate (universal) prereq if original not met
+			// Check mapped original/universal counterpart if the direct prereq is not met.
 			auto alt_it = rank->prereq_alternates.find(prereq.first);
 			if (alt_it != rank->prereq_alternates.end()) {
 				AA::Ability *alt_ability = zone->GetAlternateAdvancementAbility(alt_it->second);
@@ -1994,21 +1994,27 @@ bool ZoneDatabase::LoadAlternateAdvancementAbilities(
 
 	// Load AA prereq equivalences from aa_custom_mapping (tome system)
 	{
-		std::map<int, int> aa_mapping;
+		std::map<int, int> alternate_aa_by_aa;
 		auto mapping_results = QueryDatabase("SELECT original_aa_id, universal_aa_id FROM aa_custom_mapping");
 		if (mapping_results.Success()) {
 			for (auto row = mapping_results.begin(); row != mapping_results.end(); ++row) {
-				aa_mapping[Strings::ToInt(row[0])] = Strings::ToInt(row[1]);
+				const int original_aa_id = Strings::ToInt(row[0]);
+				const int universal_aa_id = Strings::ToInt(row[1]);
+
+				if (original_aa_id > 0 && universal_aa_id > 0) {
+					alternate_aa_by_aa[original_aa_id] = universal_aa_id;
+					alternate_aa_by_aa[universal_aa_id] = original_aa_id;
+				}
 			}
 		}
 
 		int alternate_count = 0;
-		if (!aa_mapping.empty()) {
+		if (!alternate_aa_by_aa.empty()) {
 			for (auto &rp : ranks) {
 				AA::Rank *rank = rp.second.get();
 				for (auto &prereq : rank->prereqs) {
-					auto it = aa_mapping.find(prereq.first);
-					if (it != aa_mapping.end()) {
+					auto it = alternate_aa_by_aa.find(prereq.first);
+					if (it != alternate_aa_by_aa.end()) {
 						rank->prereq_alternates[prereq.first] = it->second;
 						alternate_count++;
 					}

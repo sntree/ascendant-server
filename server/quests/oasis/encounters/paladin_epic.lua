@@ -26,8 +26,8 @@ function Keelee_Say(e)
 			e.other:SummonItem(69982); -- Item: Keelee's Brooch
 			e.self:Say(e.other:GetName() .. "! You are my savior. Thank you very much for saving me. Here is my Brooch, take it as a symbol of friendship from me to you. I need to depart. I still have some collecting to do.");
 			local qglobals = eq.get_qglobals(e.other);
-			if(qglobals["pal_chest_keel"] == nil ) then
-				eq.spawn2(893,0,0,e.self:GetX(),e.self:GetY(),e.self:GetZ(),e.self:GetHeading()); -- #a chest (Epic 2.0)
+			if(eq.is_current_expansion_omens_of_war() and qglobals["pal_chest_keel"] == nil ) then
+				eq.spawn2(893,0,0,e.self:GetX(),e.self:GetY(),e.self:GetZ(),e.self:GetHeading()); -- #a chest (Epic 2.0) -- gated to OoW
 				eq.set_global("pal_chest_keel","1",5,"F");
 			end
 			eq.depop_with_timer();

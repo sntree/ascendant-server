@@ -10,7 +10,7 @@
 # ── Server progression constant ──
 # Update this when a new expansion unlocks on the server.
 # Expansion numbers: 0-9=Classic, 10-11=Kunark, 12-14=Velious, 15=Luclin, 16=PoP, 17+=GoD+
-my $CURRENT_MAX_EXPANSION = 15;  # Currently: Kunark
+my $CURRENT_MAX_EXPANSION = 16;  # Currently: PoP
 
 # ── Economy constants ──
 # Each tome gives 1 credit of its tier; each AA rank costs 1 credit of its tier
@@ -202,6 +202,28 @@ sub ShowAllAACredits {
     quest::popup("AA Training Credits", $popup, 0, 0, 0);
 }
 
+sub GetUniqueAACount {
+    my ($client) = @_;
+    return 0 unless $client;
+
+    my $char_id = $client->CharacterID();
+    my $dbh = plugin::LoadMysql();
+    return 0 unless $dbh;
+
+    my $count = 0;
+    my $sth = $dbh->prepare(
+        "SELECT COUNT(DISTINCT aa_id) FROM character_alternate_abilities WHERE id = ?"
+    );
+
+    if ($sth && $sth->execute($char_id)) {
+        ($count) = $sth->fetchrow_array();
+        $sth->finish();
+    }
+
+    $dbh->disconnect();
+    return int($count || 0);
+}
+
 # ============================================================
 # ShowBalance - Display current credit balances
 # ============================================================
@@ -247,7 +269,11 @@ sub ShowTrainingMenu {
     my $class_bitmask = _class_bitmask($trainer_class);
 
     # Fetch AAs for this class from mapping
-    my @where = ("(acm.original_classes & $class_bitmask) > 0");
+    my @where = (
+        "(acm.original_classes & $class_bitmask) > 0",
+        "oa.enabled = 1",
+        "ua.enabled = 1",
+    );
     my @params;
     if ($filter =~ /^[123]$/) {
         push @where, "acm.tier = ?";
@@ -392,7 +418,9 @@ sub ShowAADetail {
         "FROM aa_custom_mapping acm " .
         "JOIN aa_ability ua ON ua.id = acm.universal_aa_id " .
         "JOIN aa_ability oa ON oa.id = acm.original_aa_id " .
-        "WHERE acm.universal_aa_id = ?"
+        "WHERE acm.universal_aa_id = ? " .
+        "AND oa.enabled = 1 " .
+        "AND ua.enabled = 1"
     );
     $sth->execute($universal_aa_id);
     my $aa = $sth->fetchrow_hashref();
@@ -470,18 +498,23 @@ sub ShowAADetail {
             my $prereq_name = $p->{aa_name} || "AA $prereq_aa";
             my $prereq_points = $p->{points};
 
-            # Check both original and universal versions of the prereq
-            my ($prereq_first_rank_orig) = $dbh->selectrow_array(
+            # Check the direct prereq and its mapped counterpart in either direction.
+            my ($prereq_first_rank_direct) = $dbh->selectrow_array(
                 "SELECT first_rank_id FROM aa_ability WHERE id = ?", undef, $prereq_aa
             );
-            my ($prereq_first_rank_univ) = $dbh->selectrow_array(
-                "SELECT ua.first_rank_id FROM aa_custom_mapping acm " .
+            my ($prereq_first_rank_alt) = $dbh->selectrow_array(
+                "SELECT CASE WHEN acm.original_aa_id = ? THEN ua.first_rank_id ELSE oa.first_rank_id END " .
+                "FROM aa_custom_mapping acm " .
                 "JOIN aa_ability ua ON ua.id = acm.universal_aa_id " .
-                "WHERE acm.original_aa_id = ?", undef, $prereq_aa
+                "JOIN aa_ability oa ON oa.id = acm.original_aa_id " .
+                "WHERE (acm.original_aa_id = ? OR acm.universal_aa_id = ?) " .
+                "AND oa.enabled = 1 " .
+                "AND ua.enabled = 1 " .
+                "LIMIT 1", undef, $prereq_aa, $prereq_aa, $prereq_aa
             );
-            my $rank_orig = $prereq_first_rank_orig ? $client->GetAALevel($prereq_first_rank_orig) : 0;
-            my $rank_univ = $prereq_first_rank_univ ? $client->GetAALevel($prereq_first_rank_univ) : 0;
-            my $player_prereq_rank = ($rank_orig > $rank_univ) ? $rank_orig : $rank_univ;
+            my $rank_direct = $prereq_first_rank_direct ? $client->GetAALevel($prereq_first_rank_direct) : 0;
+            my $rank_alt = $prereq_first_rank_alt ? $client->GetAALevel($prereq_first_rank_alt) : 0;
+            my $player_prereq_rank = ($rank_direct > $rank_alt) ? $rank_direct : $rank_alt;
             my $met = $player_prereq_rank >= $prereq_points ? 1 : 0;
 
             push @prereqs, {
@@ -597,7 +630,9 @@ sub ShowBuyConfirmation {
         "FROM aa_custom_mapping acm " .
         "JOIN aa_ability ua ON ua.id = acm.universal_aa_id " .
         "JOIN aa_ability oa ON oa.id = acm.original_aa_id " .
-        "WHERE acm.universal_aa_id = ?"
+        "WHERE acm.universal_aa_id = ? " .
+        "AND oa.enabled = 1 " .
+        "AND ua.enabled = 1"
     );
     $sth->execute($universal_aa_id);
     my $aa = $sth->fetchrow_hashref();
@@ -692,7 +727,9 @@ sub HandleTrainRequest {
         "FROM aa_custom_mapping acm " .
         "JOIN aa_ability ua ON ua.id = acm.universal_aa_id " .
         "JOIN aa_ability oa ON oa.id = acm.original_aa_id " .
-        "WHERE acm.universal_aa_id = ?"
+        "WHERE acm.universal_aa_id = ? " .
+        "AND oa.enabled = 1 " .
+        "AND ua.enabled = 1"
     );
     $sth->execute($universal_aa_id);
     my $aa = $sth->fetchrow_hashref();
@@ -760,9 +797,7 @@ sub HandleTrainRequest {
         return 0;
     }
 
-    # Check prerequisites (including AAs outside custom mapping)
-    # rp.aa_id is always an ORIGINAL aa_ability id.
-    # Cross-class players may satisfy the prereq via the universal AA, so check both.
+    # Check prerequisites, accepting explicit original/universal mapping pairs in either direction.
     my $pre_sth = $dbh->prepare(
         "SELECT rp.aa_id, rp.points, aa.name as aa_name, aa.first_rank_id " .
         "FROM aa_rank_prereqs rp " .
@@ -771,26 +806,30 @@ sub HandleTrainRequest {
     );
     $pre_sth->execute($target_rank_id);
     while (my $p = $pre_sth->fetchrow_hashref()) {
-        my $prereq_first_rank_orig = $p->{first_rank_id};
+        my $prereq_first_rank_direct = $p->{first_rank_id};
         my $prereq_name = $p->{aa_name} || "AA $p->{aa_id}";
 
-        unless ($prereq_first_rank_orig) {
+        unless ($prereq_first_rank_direct) {
             quest::debug("InsightTrainer: WARNING - Prerequisite AA $p->{aa_id} not found in aa_ability table");
             next;
         }
 
-        # Also look up universal first_rank_id in case player has the cross-class version
-        my ($prereq_first_rank_univ) = $dbh->selectrow_array(
-            "SELECT ua.first_rank_id FROM aa_custom_mapping acm " .
+        my ($prereq_first_rank_alt) = $dbh->selectrow_array(
+            "SELECT CASE WHEN acm.original_aa_id = ? THEN ua.first_rank_id ELSE oa.first_rank_id END " .
+            "FROM aa_custom_mapping acm " .
             "JOIN aa_ability ua ON ua.id = acm.universal_aa_id " .
-            "WHERE acm.original_aa_id = ?", undef, $p->{aa_id}
+            "JOIN aa_ability oa ON oa.id = acm.original_aa_id " .
+            "WHERE (acm.original_aa_id = ? OR acm.universal_aa_id = ?) " .
+            "AND oa.enabled = 1 " .
+            "AND ua.enabled = 1 " .
+            "LIMIT 1", undef, $p->{aa_id}, $p->{aa_id}, $p->{aa_id}
         );
 
-        my $rank_orig = $client->GetAALevel($prereq_first_rank_orig);
-        my $rank_univ = $prereq_first_rank_univ ? $client->GetAALevel($prereq_first_rank_univ) : 0;
-        my $player_prereq_rank = ($rank_orig > $rank_univ) ? $rank_orig : $rank_univ;
+        my $rank_direct = $client->GetAALevel($prereq_first_rank_direct);
+        my $rank_alt = $prereq_first_rank_alt ? $client->GetAALevel($prereq_first_rank_alt) : 0;
+        my $player_prereq_rank = ($rank_direct > $rank_alt) ? $rank_direct : $rank_alt;
 
-        quest::debug("InsightTrainer: Prereq check - $prereq_name (aa_id=$p->{aa_id}): need $p->{points}, have orig=$rank_orig univ=$rank_univ");
+        quest::debug("InsightTrainer: Prereq check - $prereq_name (aa_id=$p->{aa_id}): need $p->{points}, have direct=$rank_direct alt=$rank_alt");
 
         if ($player_prereq_rank < $p->{points}) {
             $client->Message($COLOR_RED, "You need $p->{points} rank" . ($p->{points} > 1 ? "s" : "") . " of $prereq_name first (you have $player_prereq_rank).");
@@ -849,8 +888,19 @@ sub HandleSay {
 
     if ($text =~ /hail/i) {
         my %bal = GetAllBalances($client, $trainer_class);
+        my $unique_aa_count = GetUniqueAACount($client);
+        my $aa_limit_color = '#00FF00';
+        if ($unique_aa_count >= 300) {
+            $aa_limit_color = '#FF4444';
+        } elsif ($unique_aa_count >= 275) {
+            $aa_limit_color = '#FFFF00';
+        }
         
         my $popup = "<c \"#00FFFF\">$class_name AA Training</c><br><br>";
+        $popup .= "<c \"#FFFF00\">AA Limit Notice:</c><br>";
+        $popup .= "The RoF2 client can only safely track about <c \"#FFFFFF\">300 unique AA lines</c> per character.<br>";
+        $popup .= "You currently have <c \"$aa_limit_color\">$unique_aa_count / 300</c> unique AA lines.<br>";
+        $popup .= "We are consolidating duplicate and overlapping AA lines to make room while preserving their value.<br><br>";
         $popup .= "<c \"#FFFF00\">How It Works:</c><br>";
         $popup .= "1. Bring me <c \"#FFD700\">illegible $class_name tomes</c> + platinum<br>";
         $popup .= "2. I will decipher them and grant you <c \"#00FF00\">training credits</c><br>";
@@ -932,30 +982,30 @@ sub _check_can_buy {
         return 0;
     }
 
-    # Check prerequisites
-    # rp.aa_id is always an ORIGINAL aa_ability id.
-    # Cross-class players may hold the prerequisite via the universal AA instead,
-    # so check both the original first_rank_id AND the universal first_rank_id.
+    # Check prerequisites, accepting explicit original/universal mapping pairs in either direction.
     my $pre_sth = $dbh->prepare(
         "SELECT rp.aa_id, rp.points FROM aa_rank_prereqs rp WHERE rp.rank_id = ?"
     );
     $pre_sth->execute($next_rank_id);
     while (my ($prereq_aa, $prereq_points) = $pre_sth->fetchrow_array()) {
-        # Original ability first_rank_id
-        my ($prereq_first_rank_orig) = $dbh->selectrow_array(
+        my ($prereq_first_rank_direct) = $dbh->selectrow_array(
             "SELECT first_rank_id FROM aa_ability WHERE id = ?", undef, $prereq_aa
         );
-        # Universal ability first_rank_id (if mapped)
-        my ($prereq_first_rank_univ) = $dbh->selectrow_array(
-            "SELECT ua.first_rank_id FROM aa_custom_mapping acm " .
+        my ($prereq_first_rank_alt) = $dbh->selectrow_array(
+            "SELECT CASE WHEN acm.original_aa_id = ? THEN ua.first_rank_id ELSE oa.first_rank_id END " .
+            "FROM aa_custom_mapping acm " .
             "JOIN aa_ability ua ON ua.id = acm.universal_aa_id " .
-            "WHERE acm.original_aa_id = ?", undef, $prereq_aa
+            "JOIN aa_ability oa ON oa.id = acm.original_aa_id " .
+            "WHERE (acm.original_aa_id = ? OR acm.universal_aa_id = ?) " .
+            "AND oa.enabled = 1 " .
+            "AND ua.enabled = 1 " .
+            "LIMIT 1", undef, $prereq_aa, $prereq_aa, $prereq_aa
         );
-        my $rank_orig = $prereq_first_rank_orig ? $client->GetAALevel($prereq_first_rank_orig) : 0;
-        my $rank_univ = $prereq_first_rank_univ ? $client->GetAALevel($prereq_first_rank_univ) : 0;
-        my $player_prereq_rank = ($rank_orig > $rank_univ) ? $rank_orig : $rank_univ;
+        my $rank_direct = $prereq_first_rank_direct ? $client->GetAALevel($prereq_first_rank_direct) : 0;
+        my $rank_alt = $prereq_first_rank_alt ? $client->GetAALevel($prereq_first_rank_alt) : 0;
+        my $player_prereq_rank = ($rank_direct > $rank_alt) ? $rank_direct : $rank_alt;
         if ($player_prereq_rank < $prereq_points) {
-            quest::debug("_check_can_buy: FAIL - missing prereq AA $prereq_aa (need $prereq_points, have orig=$rank_orig univ=$rank_univ)");
+            quest::debug("_check_can_buy: FAIL - missing prereq AA $prereq_aa (need $prereq_points, have direct=$rank_direct alt=$rank_alt)");
             $pre_sth->finish();
             return 0;
         }

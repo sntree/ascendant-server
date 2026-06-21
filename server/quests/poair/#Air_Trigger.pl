@@ -1,3 +1,7 @@
+# Instance-scoped qglobal keys so concurrent poair instances run the ring event independently.
+# (quest_globals has no instanceid column, so the instance id is encoded into the key name.)
+sub _ring_key { return ($instanceid ? "${instanceid}_" : "") . $_[0]; }
+
 sub EVENT_SPAWN 
 {
 	$counter = 0;
@@ -5,14 +9,14 @@ sub EVENT_SPAWN
 
 sub EVENT_SIGNAL 
 {	
-	if ($signal == 1 && defined($qglobals{event_start}) && !defined($qglobals{wind_done})) 
+	if ($signal == 1 && defined($qglobals{_ring_key("event_start")}) && !defined($qglobals{_ring_key("wind_done")})) 
 	{
         	$counter=0;
     		quest::spawn2(215446,0,0,-393.8,-673.7,105.3,484.4); # NPC: A_Sporadic_Stormrider
         	quest::spawn2(215446,0,0,-318.5,-637.7,105.4,485); # NPC: A_Sporadic_Stormrider
         	quest::spawn2(215446,0,0,-381.7,-567.2,110.0,480); # NPC: A_Sporadic_Stormrider
      	}
-     	elsif ($signal == 2 && defined($qglobals{event_start}) && !defined($qglobals{wind_done})) 
+     	elsif ($signal == 2 && defined($qglobals{_ring_key("event_start")}) && !defined($qglobals{_ring_key("wind_done")})) 
      	{
      		$counter+=1;
 
@@ -26,16 +30,16 @@ sub EVENT_SIGNAL
            		$counter=0;
      		}
      	}
-     	elsif ($signal == 3 && defined($qglobals{event_start}) && !defined($qglobals{wind_done})) 
+     	elsif ($signal == 3 && defined($qglobals{_ring_key("event_start")}) && !defined($qglobals{_ring_key("wind_done")})) 
      	{
            	quest::depop_withtimer(215057);
      	   	quest::spawn2(215451,0,0,-1589.9,484.5,15.1,381.2); # NPC: #Avatar_of_Wind
      	}
-     	elsif ($signal == 4 && !defined($qglobals{wind_done})) 
+     	elsif ($signal == 4 && !defined($qglobals{_ring_key("wind_done")})) 
 	{
-        	quest::setglobal("wind_done",1,3,"F");
+        	quest::setglobal(_ring_key("wind_done"),1,3,"F");
      	}
-	elsif ($signal == 5 && !defined($qglobals{event_start}) && !defined($qglobals{wind_done})) 
+	elsif ($signal == 5 && !defined($qglobals{_ring_key("event_start")}) && !defined($qglobals{_ring_key("wind_done")})) 
 	{	
 		#A_Mischievous_Stormrider, A_Fearsome_Stormrider, A_Stormrider_Lightningclaw, A_Marauding_Stormrider
 		if(!$entity_list->IsMobSpawnedByNpcTypeID(215002) && !$entity_list->IsMobSpawnedByNpcTypeID(215014) && !$entity_list->IsMobSpawnedByNpcTypeID(215013) && !$entity_list->IsMobSpawnedByNpcTypeID(215065)) 
@@ -49,11 +53,11 @@ sub EVENT_SIGNAL
 			quest::spawn2(215487,0,0,-272,-695,112,441);
 			quest::spawn2(215487,0,0,-278,-699,111,438);
 			quest::spawn2(215487,0,0,-284,-702,111,440);
-			quest::setglobal("event_start",1,3,"H2");
+			quest::setglobal(_ring_key("event_start"),1,3,"H2");
 		}
 	}
 	elsif ($signal == 6)
 	{
-		quest::delglobal("wind_done");
+		quest::delglobal(_ring_key("wind_done"));
 	}
 }

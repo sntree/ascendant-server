@@ -99,7 +99,7 @@ sub raid_levelblock_loot {
     return unless $zoneid;
 
     # Get item pool for this level restricted to the zone's expansion
-    my @item_pool = plugin::get_merged_raid_pool($level, $zoneid);
+    my @item_pool = plugin::get_merged_raid_pool($level, $zoneid, $npc->GetNPCTypeID());
 
     return if (scalar(@item_pool) == 0);
 
@@ -129,8 +129,9 @@ sub raid_levelblock_loot {
         quest::debug("RAID LEVELBLOCK BONUS: Added item $selected_item to $npc_name");
     }
 
-    # Secondary ultra-rare roll (1/250 chance)
-    my $ultra_rare_pool = plugin::velious_ultra_rare_pool();
+    # Secondary ultra-rare roll (1/250 chance) — Velious zones only
+    my $zone_exp_ur = plugin::zone_to_expansion($zoneid);
+    my $ultra_rare_pool = ($zone_exp_ur && $zone_exp_ur eq 'velious') ? plugin::velious_ultra_rare_pool() : undef;
     if ($level >= 70 && $ultra_rare_pool && scalar(@$ultra_rare_pool) > 0 && int(rand(250)) == 0) {
         my $ultra_item = $ultra_rare_pool->[int(rand(scalar(@$ultra_rare_pool)))];
         $npc->AddItem($ultra_item, 1);

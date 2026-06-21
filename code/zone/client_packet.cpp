@@ -1156,41 +1156,143 @@ void Client::Handle_Connect_OP_ClientUpdate(const EQApplicationPacket *app)
 void Client::Handle_Connect_OP_ReqClientSpawn(const EQApplicationPacket *app)
 {
 	conn_state = ClientSpawnRequested;
+	const bool guild_lobby_trace = zone && zone->GetZoneID() == Zones::GUILDLOBBY;
+
+	if (guild_lobby_trace) {
+		LogInfo(
+			"Guild Lobby zone-in trace: name [{}] char_id [{}] account_id [{}] instance [{}] phase [ReqClientSpawn] client_version [{}] x [{}] y [{}] z [{}] heading [{}]",
+			GetName(),
+			CharacterID(),
+			AccountID(),
+			zone->GetInstanceID(),
+			EQ::versions::ClientVersionName(ClientVersion()),
+			GetX(),
+			GetY(),
+			GetZ(),
+			GetHeading()
+		);
+	}
 
 	auto outapp = new EQApplicationPacket;
 
 	// Send Zone Doors
 	if (entity_list.MakeDoorSpawnPacket(outapp, this))
 	{
+		if (guild_lobby_trace) {
+			LogInfo(
+				"Guild Lobby zone-in trace: name [{}] instance [{}] phase [doors] packet_size [{}]",
+				GetName(),
+				zone->GetInstanceID(),
+				outapp->Size()
+			);
+		}
 		QueuePacket(outapp);
+	} else if (guild_lobby_trace) {
+		LogInfo(
+			"Guild Lobby zone-in trace: name [{}] instance [{}] phase [doors] packet_size [0]",
+			GetName(),
+			zone->GetInstanceID()
+		);
 	}
 	safe_delete(outapp);
 
 	// Send Zone Objects
+	if (guild_lobby_trace) {
+		LogInfo(
+			"Guild Lobby zone-in trace: name [{}] instance [{}] phase [zone_objects_start]",
+			GetName(),
+			zone->GetInstanceID()
+		);
+	}
 	entity_list.SendZoneObjects(this);
+	if (guild_lobby_trace) {
+		LogInfo(
+			"Guild Lobby zone-in trace: name [{}] instance [{}] phase [zone_objects_done]",
+			GetName(),
+			zone->GetInstanceID()
+		);
+	}
+
+	if (guild_lobby_trace) {
+		LogInfo(
+			"Guild Lobby zone-in trace: name [{}] instance [{}] phase [zone_points_start]",
+			GetName(),
+			zone->GetInstanceID()
+		);
+	}
 	SendZonePoints();
+	if (guild_lobby_trace) {
+		LogInfo(
+			"Guild Lobby zone-in trace: name [{}] instance [{}] phase [zone_points_done]",
+			GetName(),
+			zone->GetInstanceID()
+		);
+	}
+
 	// Live does this
 	outapp = new EQApplicationPacket(OP_SendAAStats, 0);
 	FastQueuePacket(&outapp);
+	if (guild_lobby_trace) {
+		LogInfo(
+			"Guild Lobby zone-in trace: name [{}] instance [{}] phase [aa_stats_sent]",
+			GetName(),
+			zone->GetInstanceID()
+		);
+	}
 
 	// Tell client they can continue we're done
 	outapp = new EQApplicationPacket(OP_ZoneServerReady, 0);
 	FastQueuePacket(&outapp);
+	if (guild_lobby_trace) {
+		LogInfo(
+			"Guild Lobby zone-in trace: name [{}] instance [{}] phase [zone_server_ready_sent]",
+			GetName(),
+			zone->GetInstanceID()
+		);
+	}
 	outapp = new EQApplicationPacket(OP_SendExpZonein, 0);
 	FastQueuePacket(&outapp);
+	if (guild_lobby_trace) {
+		LogInfo(
+			"Guild Lobby zone-in trace: name [{}] instance [{}] phase [send_exp_zonein_sent]",
+			GetName(),
+			zone->GetInstanceID()
+		);
+	}
 
 	if (ClientVersion() >= EQ::versions::ClientVersion::RoF)
 	{
 		outapp = new EQApplicationPacket(OP_ClientReady, 0);
 		FastQueuePacket(&outapp);
+		if (guild_lobby_trace) {
+			LogInfo(
+				"Guild Lobby zone-in trace: name [{}] instance [{}] phase [client_ready_sent_to_rof_plus]",
+				GetName(),
+				zone->GetInstanceID()
+			);
+		}
 	}
 
 	// New for Secrets of Faydwer - Used in Place of OP_SendExpZonein
 	outapp = new EQApplicationPacket(OP_WorldObjectsSent, 0);
 	QueuePacket(outapp);
 	safe_delete(outapp);
+	if (guild_lobby_trace) {
+		LogInfo(
+			"Guild Lobby zone-in trace: name [{}] instance [{}] phase [world_objects_sent_ack_queued]",
+			GetName(),
+			zone->GetInstanceID()
+		);
+	}
 
 	conn_state = ZoneContentsSent;
+	if (guild_lobby_trace) {
+		LogInfo(
+			"Guild Lobby zone-in trace: name [{}] instance [{}] phase [ZoneContentsSent]",
+			GetName(),
+			zone->GetInstanceID()
+		);
+	}
 
 	return;
 }
@@ -4512,12 +4614,42 @@ void Client::Handle_OP_CastSpell(const EQApplicationPacket *app)
 
 	LogSpells("OP CastSpell: slot [{}] spell [{}] target [{}] inv [{}]", castspell->slot, castspell->spell_id, castspell->target_id, (unsigned long)castspell->inventoryslot);
 	CastingSlot slot = static_cast<CastingSlot>(castspell->slot);
+	auto record_spell_cast = [&](uint16 spell_id, uint32 target_id, CastingSlot casting_slot, int32 inventory_slot, bool is_item_click, bool is_discipline, bool is_ability) {
+		auto target = entity_list.GetMob(target_id);
+		auto e = PlayerEvent::SpellCastEvent{
+			.spell_id       = spell_id,
+			.spell_name     = GetSpellName(spell_id),
+			.target_id      = target_id,
+			.target_name    = target ? target->GetCleanName() : "",
+			.casting_slot   = static_cast<int32>(casting_slot),
+			.inventory_slot = inventory_slot,
+			.is_item_click  = is_item_click,
+			.is_discipline  = is_discipline,
+			.is_ability     = is_ability
+		};
+
+		RecordPlayerEventLog(PlayerEvent::SPELL_CAST, e);
+	};
 
 	if (RuleB(Spells, RequireMnemonicRetention)) {
-		if (EQ::ValueWithin(castspell->slot, 8, 11) && GetAA(aaMnemonicRetention) < (castspell->slot - 7)) {
-			InterruptSpell(castspell->spell_id);
-			Message(Chat::Red, "You do not have the required AA to use this spell slot.");
-			return;
+		if (EQ::ValueWithin(castspell->slot, 8, 11)) {
+			const uint32 required_spell_slot_rank = castspell->slot - 7;
+			const uint32 mnemonic_rank = GetAA(aaMnemonicRetention);
+			const uint32 readiness_rank = GetAA(aaMysticalAttuning);
+			uint32 readiness_spell_slot_rank = 0;
+
+			if (readiness_rank > 1) {
+				readiness_spell_slot_rank = readiness_rank - 1;
+				if (readiness_spell_slot_rank > 4) {
+					readiness_spell_slot_rank = 4;
+				}
+			}
+
+			if (mnemonic_rank < required_spell_slot_rank && readiness_spell_slot_rank < required_spell_slot_rank) {
+				InterruptSpell(castspell->spell_id);
+				Message(Chat::Red, "You do not have the required AA to use this spell slot.");
+				return;
+			}
 		}
 	}
 
@@ -4537,6 +4669,7 @@ void Client::Handle_OP_CastSpell(const EQApplicationPacket *app)
 		}
 
 		if (IsValidSpell(spell_to_cast)) {
+			record_spell_cast(spell_to_cast, castspell->target_id, slot, -1, false, false, false);
 			CastSpell(spell_to_cast, castspell->target_id, slot);
 		}
 		else {
@@ -4582,6 +4715,7 @@ void Client::Handle_OP_CastSpell(const EQApplicationPacket *app)
 							}
 
 							if (i == 0) {
+								record_spell_cast(item->Click.Effect, castspell->target_id, slot, castspell->inventoryslot, true, false, false);
 								CastSpell(item->Click.Effect, castspell->target_id, slot, item->CastTime, 0, 0, castspell->inventoryslot);
 							}
 							else {
@@ -4614,6 +4748,7 @@ void Client::Handle_OP_CastSpell(const EQApplicationPacket *app)
 						}
 
 						if (i == 0) {
+							record_spell_cast(item->Click.Effect, castspell->target_id, slot, castspell->inventoryslot, true, false, false);
 							CastSpell(item->Click.Effect, castspell->target_id, slot, item->CastTime, 0, 0, castspell->inventoryslot);
 						}
 						else {
@@ -4647,6 +4782,8 @@ void Client::Handle_OP_CastSpell(const EQApplicationPacket *app)
 			InterruptSpell(castspell->spell_id);
 			return;
 		}
+
+		record_spell_cast(castspell->spell_id, castspell->target_id, slot, -1, false, true, false);
 	}
 	/* ABILITY cast (LoH and Harm Touch) */
 	else if (slot == CastingSlot::Ability) {
@@ -4679,7 +4816,10 @@ void Client::Handle_OP_CastSpell(const EQApplicationPacket *app)
 		}
 
 		if (spell_to_cast > 0)	// if we've matched LoH or HT, cast now
+		{
+			record_spell_cast(spell_to_cast, castspell->target_id, slot, -1, false, false, true);
 			CastSpell(spell_to_cast, castspell->target_id, slot);
+		}
 	}
 	return;
 }

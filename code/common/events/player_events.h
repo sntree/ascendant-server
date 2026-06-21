@@ -77,6 +77,7 @@ namespace PlayerEvent {
 		GUILD_BANK_DEPOSIT,
 		GUILD_BANK_WITHDRAWAL,
 		GUILD_BANK_MOVE_TO_BANK_AREA,
+		SPELL_CAST,
 		MAX // dont remove
 	};
 
@@ -144,7 +145,8 @@ namespace PlayerEvent {
 		"Evolve Item Update",
 		"Guild Bank Item Deposit",
 		"Guild Bank Item Withdrawal",
-		"Guild Bank Move From Deposit Area to Bank Area"
+		"Guild Bank Move From Deposit Area to Bank Area",
+		"Spell Cast"
 	};
 
 	// Generic struct used by all events
@@ -667,6 +669,65 @@ namespace PlayerEvent {
 				CEREAL_NVP(augment_6_id),
 				CEREAL_NVP(attuned),
 				CEREAL_NVP(reason)
+			);
+		}
+	};
+
+	struct SpellCastEvent {
+		uint32      spell_id;
+		std::string spell_name;
+		uint32      target_id;
+		std::string target_name;
+		int32       casting_slot;
+		int32       inventory_slot;
+		bool        is_item_click;
+		bool        is_discipline;
+		bool        is_ability;
+
+		template <class Archive>
+		void serialize(Archive& ar)
+		{
+			if constexpr (Archive::is_saving::value) {
+				save(ar);
+			}
+			else {
+				load(ar);
+			}
+		}
+
+		template <class Archive>
+		void save(Archive& ar) const
+		{
+			ar(
+				CEREAL_NVP(spell_id),
+				CEREAL_NVP(spell_name),
+				CEREAL_NVP(target_id)
+			);
+
+			CEREAL_NVP_IF_NOT_EMPTY(ar, target_name);
+
+			ar(
+				CEREAL_NVP(casting_slot),
+				CEREAL_NVP(inventory_slot),
+				CEREAL_NVP(is_item_click),
+				CEREAL_NVP(is_discipline),
+				CEREAL_NVP(is_ability)
+			);
+		}
+
+		template <class Archive>
+		void load(Archive& ar)
+		{
+			ar(
+				CEREAL_NVP(spell_id),
+				CEREAL_NVP(spell_name),
+				CEREAL_NVP(target_id),
+				CEREAL_NVP(target_name),
+				CEREAL_NVP(casting_slot),
+				CEREAL_NVP(inventory_slot),
+				CEREAL_NVP(is_item_click),
+				CEREAL_NVP(is_discipline),
+				CEREAL_NVP(is_ability)
 			);
 		}
 	};

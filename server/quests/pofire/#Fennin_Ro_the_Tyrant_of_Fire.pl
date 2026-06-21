@@ -1,23 +1,25 @@
 # Modified from original by Jaekob
-# Timers: 1 = check for named mobs to be up, 2 = time for event
+# Timers: phase_check = check for named mobs to be up, event_timeout = time for event
 
 sub EVENT_SPAWN {
         quest::spawn_condition($zonesn,1,0);
         quest::spawn_condition($zonesn,2,0);
-	quest::settimer(1,30);
+	quest::settimer("phase_check",30);
 	$start_event = undef;
 }
 
 sub EVENT_SIGNAL {
-	quest::settimer(2,7200);
+	quest::settimer("event_timeout",7200);
 	quest::ze(1,"The ground rumbles as the Guardian of Doomfire collapses to the ground dead. Then a loud booming voice is heard saying. 'Come little mortals! Feel the chaos of the fires that flame the dark rage. Test yourselves against the might of my armies!'");
 	$start_event = 1;
 }
 
 sub EVENT_TIMER {
+	if ($timer eq "phase_check" || $timer eq "1") {
 	{
+		quest::stoptimer("phase_check");
 		quest::stoptimer(1);
-		quest::settimer(1,5);
+		quest::settimer("phase_check",5);
 		$named_up = 0;
 	}
 $check_named = $entity_list->GetMobByNpcTypeID(217102);
@@ -89,7 +91,7 @@ $check_named = $entity_list->GetMobByNpcTypeID(217088);
 			$named_up = 1;
 		}
 #phase 2
-       if ($timer == 1 && $start_event == 1 && $named_up == 0)  {
+       if ($start_event == 1 && $named_up == 0)  {
                quest::spawn_condition($zonesn,1,1);
                quest::ze(1,"Four enraged roars of fury echo from further down the bridge over the cacophany of an army waiting to hand out death. The powerful voice is then heard saying, 'Rexanous, Azobian, Hebabbilys, and Javonn! Come destroy these intruders.'");
                quest::spawn2(217079,0,0,-1325,-1521.6,-202.2,197.8); # NPC: Javonn_the_Overlord
@@ -100,7 +102,7 @@ $check_named = $entity_list->GetMobByNpcTypeID(217088);
             }
 
 #phase 3
-        elsif ($timer == 1 && $start_event == 2 && $named_up == 0){
+        elsif ($start_event == 2 && $named_up == 0){
                 quest::spawn_condition($zonesn,1,0);
 		quest::ze(1,"As the last of the army is defeated visions of endless burning flames intrude into your mind. Suddenly the visions ends as a call comes from just ahead saying, 'Prepare to meet your end at the hands of the Council of Fire!'");
                 quest::spawn2(217083,0,0,-1459.5,-1150,-197.2,255.2); # NPC: Chancellor_Traxom
@@ -111,17 +113,21 @@ $check_named = $entity_list->GetMobByNpcTypeID(217088);
             }
             
 #final phase
-	elsif ($timer == 1 && $start_event == 3 && $named_up == 0) {
+	elsif ($start_event == 3 && $named_up == 0) {
+		quest::stoptimer("phase_check");
 		quest::stoptimer(1);
+		quest::stoptimer("event_timeout");
 		quest::stoptimer(2);
                 quest::spawn_condition($zonesn,2,1);
                 quest::spawn2(217054,0,0,$x,$y,$z,$h); # NPC: Fennin_Ro_the_Tyrant_of_Fire
 		quest::ze(1,"A maddened call of endless fury erupts as a burning creature of pure destructions stands tall before you. The creature then speaks in the loud booming voice of immense power saying, 'You are fools to have come this far. Prepare to tremble at the might of Doomfire!'");
 		quest::depop();
 	}
+	}
 
 #depop after time expires
-	if ($timer == 2) {
+	if ($timer eq "event_timeout" || $timer eq "2") {
+		quest::stoptimer("event_timeout");
 		quest::stoptimer(2);
 		$start_event = undef;
                 quest::signal(217077,0); # NPC: Azobian_the_Darklord

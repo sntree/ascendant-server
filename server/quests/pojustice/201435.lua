@@ -6,6 +6,7 @@
 local lashing_flag      = 0;
 local trial_group_id    = 0;
 local client_id         = 0; -- character ID, not entity ID
+local trial_failed      = 0;
 local trial_x           = 1373;
 local trial_y           = -1125;
 local trial_z           = 1;
@@ -37,14 +38,14 @@ function event_say(e)
                trial_group_id = trial_group:GetID();
             else
                client_id = e.other:CharacterID();
-               e.other:MovePC(201, trial_x, trial_y, trial_z, trial_h); -- Zone: pojustice
+               e.other:MovePCInstance(201, eq.get_zone_instance_id(), trial_x, trial_y, trial_z, trial_h); -- Zone: pojustice
             end
 
             -- Spawn the Controller
             eq.spawn2(201449, 0, 0, trial_x, trial_y, trial_z, trial_h); -- NPC: #Event_Lashing_Control
 
-            -- Set the Proximity Check Timer; if everyone has left the trial (wipe); then reset things
-            eq.set_timer("proximitycheck", 60000);
+            eq.stop_timer("proximitycheck");
+            trial_failed = 0;
 
             -- Set a variable to indicate the Trial is unavailable.
             lashing_flag = 1;
@@ -57,7 +58,7 @@ function event_say(e)
             eq.set_global("pop_poj_lashing", "1", 5, "F");
             e.other:Message(MT.LightBlue, "You receive a character flag!");
          end
-		elseif (e.message:findi("i seek knowledge") ) then
+		elseif (e.message:findi("knowledge") ) then
 			local marks = { 31796, 31842, 31844, 31845, 31846 , 31960 }
 			local has_six = 1;
 			for k,v in pairs(marks) do
@@ -89,7 +90,7 @@ function event_timer(e)
       else
           local client_e = eq.get_entity_list():GetClientByCharID(client_id);
           if (client_e ~= nil and client_e.valid) then
-              client_e:MovePC( 201, 456, 825, 9, 360 ); -- Zone: pojustice
+              client_e:MovePCInstance(201, eq.get_zone_instance_id(), 456, 825, 9, 360 ); -- Zone: pojustice
               client_e:Message(MT.BrightBlue, "A mysterious force translocates you.");
           end
       end
@@ -103,6 +104,7 @@ function event_timer(e)
       lashing_flag   = 0;
       client_id      = 0;
       trial_group_id = 0;
+      trial_failed   = 0;
 
       despawn_trial_mobs();
 
@@ -117,7 +119,7 @@ function event_timer(e)
 
       -- Check to see if all the PCs have left the Trial area; if so
       -- Clean Corpses up and release thoe hold and stop the timer.
-      if not ProximityCheck(trial_x, trial_y, trial_z, 250) then 
+      if trial_failed == 1 and not ProximityCheck(trial_x, trial_y, trial_z, 325) then 
          eq.stop_timer(e.timer);
 
          eq.stop_timer("cooldown");
@@ -137,6 +139,7 @@ function event_signal(e)
       -- 15min Eject Timer to kick any PC out of the Trial Room
       eq.set_timer("ejecttimer", eject_timer);
       eq.set_timer("cooldown"  , cooldown_timer);
+      trial_failed = 0;
 
 		eq.stop_timer("proximitycheck");
 
@@ -144,6 +147,7 @@ function event_signal(e)
       -- Trial Failed
       eq.set_timer("ejecttimer", fail_timer);
       eq.set_timer("cooldown"  , fail_timer);
+      trial_failed = 1;
 
       eq.stop_timer("proximitycheck");
       eq.set_timer("proximitycheck", 10000);
@@ -166,7 +170,7 @@ function MoveGroup(trial_group, src_x, src_y, src_z, distance, tgt_x, tgt_y, tgt
                -- check the distance and port them up if close enough
                if (client_v:CalculateDistance(src_x, src_y, src_z) <= distance) then
                   -- port the player up
-                  client_v:MovePC(201, tgt_x, tgt_y, tgt_z, tgt_h); -- Zone: pojustice
+                  client_v:MovePCInstance(201, eq.get_zone_instance_id(), tgt_x, tgt_y, tgt_z, tgt_h); -- Zone: pojustice
 
                   if (msg) then
                      client_v:Message(MT.BrightBlue, msg);

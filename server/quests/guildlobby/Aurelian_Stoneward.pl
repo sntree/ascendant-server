@@ -7,6 +7,27 @@
 # character name validation; rewards are flagged per-character so alts
 # must earn their own completions.
 
+my @pop_completion_wands = (
+    4039, # Polymorph Wand: Bertoxxulous
+    4040, # Polymorph Wand: Saryrn
+    4041, # Polymorph Wand: Vallon
+);
+
+sub GrantPoPCompletionWands {
+    my ($char_id) = @_;
+    return 0 if quest::get_data("pop_wands_awarded_" . $char_id);
+
+    my $granted = 0;
+    foreach my $item_id (@pop_completion_wands) {
+        next if plugin::check_hasitem($client, $item_id);
+        $client->SummonItem($item_id);
+        $granted = 1;
+    }
+
+    quest::set_data("pop_wands_awarded_" . $char_id, $client->GetCleanName());
+    return $granted;
+}
+
 sub EVENT_SAY {
     if ($text =~ /hail/i) {
         my $account_id = $client->AccountID();
@@ -20,19 +41,23 @@ sub EVENT_SAY {
         my $has_velious_char = CheckVeliousComplete($char_id);
         # Check character flags for Luclin
         my $has_luclin_char = CheckLuclinComplete($char_id);
+        # Check character flags for Planes of Power
+        my $has_pop_char = CheckPoPComplete($char_id);
         
         # Check character awarded flags
         my $classic_awarded = quest::get_data("classic_awarded_" . $char_id);
         my $kunark_awarded = quest::get_data("kunark_awarded_" . $char_id);
         my $velious_awarded = quest::get_data("velious_awarded_" . $char_id);
         my $luclin_awarded = quest::get_data("luclin_awarded_" . $char_id);
+        my $pop_awarded = quest::get_data("pop_awarded_" . $char_id);
         
         my $classic_link = quest::saylink("classic", 1, "Classic");
         my $kunark_link = quest::saylink("kunark", 1, "Kunark");
         my $velious_link = quest::saylink("velious", 1, "Velious");
         my $luclin_link = quest::saylink("luclin", 1, "Luclin");
+        my $pop_link = quest::saylink("pop", 1, "Planes of Power");
         
-        plugin::Whisper("Greetings, $name. I am Aurelian Stoneward, keeper of legendary achievements. I can help you claim rewards for completing $classic_link, $kunark_link, $velious_link, or $luclin_link content.");
+        plugin::Whisper("Greetings, $name. I am Aurelian Stoneward, keeper of legendary achievements. I can help you claim rewards for completing $classic_link, $kunark_link, $velious_link, $luclin_link, or $pop_link content.");
         
         # Show status
         if ($has_classic_acct && !$classic_awarded) {
@@ -47,6 +72,13 @@ sub EVENT_SAY {
         if ($has_luclin_char && !$luclin_awarded) {
             plugin::Whisper("I see you have completed the Luclin era! You have rewards waiting.");
         }
+        if ($has_pop_char && !$pop_awarded) {
+            plugin::Whisper("I see you have completed the Planes of Power era! You have rewards waiting.");
+        }
+
+        # Auto-grant era completion titlesets (idempotent). Handles both brand-new
+        # completers and retroactive grants for players who finished before this existed.
+        GrantCompletionTitles($char_id);
     }
     elsif ($text =~ /classic/i) {
         HandleClassicRequest();
@@ -59,6 +91,9 @@ sub EVENT_SAY {
     }
     elsif ($text =~ /luclin/i) {
         HandleLuclinRequest();
+    }
+    elsif ($text =~ /pop/i) {
+        HandlePoPRequest();
     }
 }
 
@@ -118,6 +153,66 @@ sub CheckLuclinComplete {
         $has_zelnithak  && $has_zelnithak  eq $char_name &&
         $has_highpriest && $has_highpriest eq $char_name
     ) ? 1 : 0;
+}
+
+sub CheckPoPComplete {
+    my ($char_id) = @_;
+    my $account_id = $client->AccountID();
+    my $char_name  = $client->GetCleanName();
+
+    my $has_grummus  = quest::get_data("pop_grummus_"          . $account_id);
+    my $has_terris   = quest::get_data("pop_terristhule_"      . $account_id);
+    my $has_manaetic = quest::get_data("pop_manaeticbehemoth_" . $account_id);
+    my $has_aerindar = quest::get_data("pop_aerindar_"         . $account_id);
+    my $has_bertox   = quest::get_data("pop_bertoxxulous_"     . $account_id);
+    my $has_saryrn   = quest::get_data("pop_saryrn_"           . $account_id);
+
+    return (
+        $has_grummus  && $has_grummus  eq $char_name &&
+        $has_terris   && $has_terris   eq $char_name &&
+        $has_manaetic && $has_manaetic eq $char_name &&
+        $has_aerindar && $has_aerindar eq $char_name &&
+        $has_bertox   && $has_bertox   eq $char_name &&
+        $has_saryrn   && $has_saryrn   eq $char_name
+    ) ? 1 : 0;
+}
+
+# LDoN "completion" = maxed the augment power in every theme.
+# Max power values: Guk 7, Miragul 7, Mistmoore 8, Rujarkian 8, Takish 8.
+# These are character-wide quest globals (requires Aurelian npc_types.qglobal = 1).
+sub CheckLDoNComplete {
+    return (
+        defined($qglobals{GUKpower}) && $qglobals{GUKpower} >= 7 &&
+        defined($qglobals{MIRpower}) && $qglobals{MIRpower} >= 7 &&
+        defined($qglobals{MMCpower}) && $qglobals{MMCpower} >= 8 &&
+        defined($qglobals{RUJpower}) && $qglobals{RUJpower} >= 8 &&
+        defined($qglobals{TAKpower}) && $qglobals{TAKpower} >= 8
+    ) ? 1 : 0;
+}
+
+# Idempotently grants the completion titleset for each finished era/content.
+# A per-character data flag prevents repeating the announcement on every hail;
+# enabletitle() itself is already safe to call repeatedly.
+sub GrantCompletionTitles {
+    my ($char_id) = @_;
+
+    if (CheckLuclinComplete($char_id) && !quest::get_data("title_luclin_419_" . $char_id)) {
+        quest::enabletitle(419); # the Lunar Ascendant
+        quest::set_data("title_luclin_419_" . $char_id, "1");
+        $client->Message(15, "You have been awarded the title 'the Lunar Ascendant' for completing the Luclin era!");
+    }
+
+    if (CheckLDoNComplete() && !quest::get_data("title_ldon_423_" . $char_id)) {
+        quest::enabletitle(423); # the Wayfarer's Champion
+        quest::set_data("title_ldon_423_" . $char_id, "1");
+        $client->Message(15, "You have been awarded the title 'the Wayfarer\x{2019}s Champion' for mastering the Lost Dungeons of Norrath!");
+    }
+
+    if (CheckPoPComplete($char_id) && !quest::get_data("title_pop_421_" . $char_id)) {
+        quest::enabletitle(421); # the Godbreaker
+        quest::set_data("title_pop_421_" . $char_id, "1");
+        $client->Message(15, "You have been awarded the title 'the Godbreaker' for conquering the Planes of Power!");
+    }
 }
 
 sub HandleLuclinRequest {
@@ -183,6 +278,79 @@ sub HandleLuclinRequest {
                     . "Return to me when you have accomplished this feat!";
 
         $client->Popup2("Luclin Era Completion", $popup_text, 0, 0, 0, 0);
+    }
+}
+
+sub HandlePoPRequest {
+    my $char_id    = $client->CharacterID();
+    my $account_id = $client->AccountID();
+    my $char_name  = $client->GetCleanName();
+
+    my $has_grummus  = quest::get_data("pop_grummus_"          . $account_id);
+    my $has_terris   = quest::get_data("pop_terristhule_"      . $account_id);
+    my $has_manaetic = quest::get_data("pop_manaeticbehemoth_" . $account_id);
+    my $has_aerindar = quest::get_data("pop_aerindar_"         . $account_id);
+    my $has_bertox   = quest::get_data("pop_bertoxxulous_"     . $account_id);
+    my $has_saryrn   = quest::get_data("pop_saryrn_"           . $account_id);
+
+    $has_grummus  = ($has_grummus  && $has_grummus  eq $char_name) ? 1 : 0;
+    $has_terris   = ($has_terris   && $has_terris   eq $char_name) ? 1 : 0;
+    $has_manaetic = ($has_manaetic && $has_manaetic eq $char_name) ? 1 : 0;
+    $has_aerindar = ($has_aerindar && $has_aerindar eq $char_name) ? 1 : 0;
+    $has_bertox   = ($has_bertox   && $has_bertox   eq $char_name) ? 1 : 0;
+    $has_saryrn   = ($has_saryrn   && $has_saryrn   eq $char_name) ? 1 : 0;
+
+    my $is_complete = ($has_grummus && $has_terris && $has_manaetic && $has_aerindar && $has_bertox && $has_saryrn) ? 1 : 0;
+
+    my $already_awarded = quest::get_data("pop_awarded_" . $char_id);
+
+    my $grummus_status  = $has_grummus  ? "<c \"#00FF00\">DEFEATED</c>" : "<c \"#FF0000\">Not Defeated</c>";
+    my $terris_status   = $has_terris   ? "<c \"#00FF00\">DEFEATED</c>" : "<c \"#FF0000\">Not Defeated</c>";
+    my $manaetic_status = $has_manaetic ? "<c \"#00FF00\">DEFEATED</c>" : "<c \"#FF0000\">Not Defeated</c>";
+    my $aerindar_status = $has_aerindar ? "<c \"#00FF00\">DEFEATED</c>" : "<c \"#FF0000\">Not Defeated</c>";
+    my $bertox_status   = $has_bertox   ? "<c \"#00FF00\">DEFEATED</c>" : "<c \"#FF0000\">Not Defeated</c>";
+    my $saryrn_status   = $has_saryrn   ? "<c \"#00FF00\">DEFEATED</c>" : "<c \"#FF0000\">Not Defeated</c>";
+
+    my $popup_text = "<c \"#FFD700\"><b>Planes of Power Era Completion Status</b></c><br><br>"
+                   . "<c \"#FFFFFF\">To complete the Planes of Power era, you must defeat the Tier 1 and Tier 2 gods:</c><br><br>"
+                   . "<c \"#00FFFF\">Grummus</c> (Plane of Disease): $grummus_status<br>"
+                   . "<c \"#00FFFF\">Terris-Thule</c> (Plane of Nightmare): $terris_status<br>"
+                   . "<c \"#00FFFF\">Manaetic Behemoth</c> (Plane of Innovation): $manaetic_status<br>"
+                   . "<c \"#00FFFF\">Aerin`Dar</c> (Plane of Valor): $aerindar_status<br>"
+                   . "<c \"#00FFFF\">Bertoxxulous</c> (Crypt of Decay): $bertox_status<br>"
+                   . "<c \"#00FFFF\">Saryrn</c> (Plane of Torment): $saryrn_status<br><br>";
+
+    if ($already_awarded) {
+        my $wands_granted = GrantPoPCompletionWands($char_id);
+        if ($wands_granted) {
+            plugin::Whisper("Your Planes of Power polymorph wand rewards were missing from the old claim. I have granted them now.");
+            return;
+        }
+
+        my $simple_popup = "<c \"#FFD700\"><b>Planes of Power Era Status</b></c><br><br>"
+                         . "<c \"#FFFFFF\">You have already claimed your Planes of Power rewards on this character!</c>";
+        $client->Popup2("Planes of Power Era Status", $simple_popup, 0, 0, 0, 0);
+        return;
+    }
+    elsif ($is_complete) {
+        $popup_text .= "<c \"#00FF00\"><b>Congratulations!</b></c><br>"
+                    . "You have cast down the gods of the Planes of Power!<br><br>"
+                    . "<c \"#FFD700\">Rewards:</c><br>"
+                    . "&bull; The title <c \"#FFD700\">the Godbreaker</c><br>"
+                    . "&bull; Polymorph Wand: Bertoxxulous<br>"
+                    . "&bull; Polymorph Wand: Saryrn<br>"
+                    . "&bull; Polymorph Wand: Vallon<br>"
+                    . "&bull; Charm of the Fifth Age (charm upgrade)<br><br>"
+                    . "<c \"#FFAA00\">After claiming, hand me your Charm of the Fourth Age to upgrade it to the Charm of the Fifth Age!</c><br><br>"
+                    . "<c \"#FFFFFF\">Click OK to claim your rewards!</c>";
+
+        $client->Popup2("Planes of Power Era Completion", $popup_text, 5009, 5010, 2, 0, "Claim Rewards", "Cancel");
+    }
+    else {
+        $popup_text .= "<c \"#FF9900\">You must defeat all six Tier 1 and Tier 2 bosses to complete the Planes of Power era.</c><br>"
+                    . "Return to me when you have accomplished this feat!";
+
+        $client->Popup2("Planes of Power Era Completion", $popup_text, 0, 0, 0, 0);
     }
 }
 
@@ -351,7 +519,7 @@ sub HandleKunarkRequest {
 
 sub EVENT_ITEM {
     # Reject charm turn-ins that have augments — player must remove augs first
-    my @charm_ids = (2827, 2855, 2854);
+    my @charm_ids = (2827, 2855, 2854, 2829);
     for my $slot (1..4) {
         my $inst = plugin::val("item${slot}_inst");
         next unless $inst;
@@ -366,7 +534,23 @@ sub EVENT_ITEM {
         }
     }
 
-    if (plugin::check_handin(\%itemcount, 2827 => 1)) {
+    if (plugin::check_handin(\%itemcount, 2829 => 1)) {
+        my $char_id = $client->CharacterID();
+        my $pop_awarded = quest::get_data("pop_awarded_" . $char_id);
+
+        if ($pop_awarded) {
+            # They've completed Planes of Power, upgrade their charm
+            $client->SummonItem(4038);
+            plugin::Whisper("Your charm has been upgraded! This transcendent Charm of the Fifth Age reflects your conquest of the Planes of Power.");
+            $client->Message(15, "You received: Charm of the Fifth Age");
+        }
+        else {
+            # They haven't completed Planes of Power yet — return the charm directly
+            plugin::Whisper("You have not yet claimed your Planes of Power rewards. Please click 'Claim Rewards' first, then hand me the charm.");
+            $client->SummonItem(2829);
+        }
+    }
+    elsif (plugin::check_handin(\%itemcount, 2827 => 1)) {
         my $char_id = $client->CharacterID();
         my $luclin_awarded = quest::get_data("luclin_awarded_" . $char_id);
         
@@ -607,7 +791,8 @@ sub EVENT_POPUPRESPONSE {
             $client->SummonItem(2830);
 
             # Grant titles
-            quest::enabletitle(412);
+            quest::enabletitle(419); # the Lunar Ascendant (Luclin era)
+            quest::set_data("title_luclin_419_" . $char_id, "1");
 
             # Mark as awarded (permanent)
             quest::set_data("luclin_awarded_" . $char_id, $client->GetCleanName());
@@ -628,6 +813,63 @@ sub EVENT_POPUPRESPONSE {
         }
     }
     elsif ($popupid == 5008) {
+        plugin::Whisper("Very well. Return when you are ready to claim your rewards.");
+    }
+    elsif ($popupid == 5009) {
+        # Planes of Power rewards claim
+        my $char_id = $client->CharacterID();
+
+        # Check if already awarded
+        my $already_awarded = quest::get_data("pop_awarded_" . $char_id);
+        if ($already_awarded) {
+            plugin::Whisper("You have already claimed your Planes of Power rewards!");
+            return;
+        }
+
+        # Verify completion
+        my $account_id = $client->AccountID();
+        my $char_name  = $client->GetCleanName();
+        my $has_grummus  = quest::get_data("pop_grummus_"          . $account_id);
+        my $has_terris   = quest::get_data("pop_terristhule_"      . $account_id);
+        my $has_manaetic = quest::get_data("pop_manaeticbehemoth_" . $account_id);
+        my $has_aerindar = quest::get_data("pop_aerindar_"         . $account_id);
+        my $has_bertox   = quest::get_data("pop_bertoxxulous_"     . $account_id);
+        my $has_saryrn   = quest::get_data("pop_saryrn_"           . $account_id);
+
+        $has_grummus  = ($has_grummus  && $has_grummus  eq $char_name) ? 1 : 0;
+        $has_terris   = ($has_terris   && $has_terris   eq $char_name) ? 1 : 0;
+        $has_manaetic = ($has_manaetic && $has_manaetic eq $char_name) ? 1 : 0;
+        $has_aerindar = ($has_aerindar && $has_aerindar eq $char_name) ? 1 : 0;
+        $has_bertox   = ($has_bertox   && $has_bertox   eq $char_name) ? 1 : 0;
+        $has_saryrn   = ($has_saryrn   && $has_saryrn   eq $char_name) ? 1 : 0;
+
+        if ($has_grummus && $has_terris && $has_manaetic && $has_aerindar && $has_bertox && $has_saryrn) {
+            # Award completion items
+            GrantPoPCompletionWands($char_id);
+
+            # Grant title: the Godbreaker
+            quest::enabletitle(421);
+            quest::set_data("title_pop_421_" . $char_id, "1");
+
+            # Mark as awarded (permanent)
+            quest::set_data("pop_awarded_" . $char_id, $client->GetCleanName());
+
+            # World announcement
+            quest::we(15, "$char_name has cast down the gods of the Planes of Power and earned the title of Godbreaker! Congratulations, champion!");
+
+            # Messages
+            $client->Message(15, "\x{2550}" x 51);
+            $client->Message(15, "Planes of Power Era Rewards Claimed!");
+            $client->Message(15, "You received the Planes of Power polymorph wands and unlocked the title 'the Godbreaker'!");
+            $client->Message(15, "\x{2550}" x 51);
+
+            plugin::Whisper("Congratulations, $name! You have proven yourself a Godbreaker. Now hand me your Charm of the Fourth Age and I will upgrade it to the Charm of the Fifth Age!");
+        }
+        else {
+            plugin::Whisper("I cannot grant you the rewards. You must defeat all six Tier 1 and Tier 2 Planes of Power bosses first.");
+        }
+    }
+    elsif ($popupid == 5010) {
         plugin::Whisper("Very well. Return when you are ready to claim your rewards.");
     }
 }

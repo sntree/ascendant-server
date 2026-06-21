@@ -42,7 +42,7 @@ if($text=~/Hail/i)
 
 if($text=~/return/i)
        {
-       quest::movepc(204,-1520,1104,125); # Zone: ponightmare
+       quest::MovePCInstance(204,$instanceid,-1520,1104,125); # Zone: ponightmare
        }
 {
 $pop_pon_hedge_jezith=undef;

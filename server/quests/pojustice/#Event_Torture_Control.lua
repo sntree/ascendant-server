@@ -30,6 +30,7 @@ local trial_wave		= 0;
 -- the next wave spawns; ~90 seconds
 local wave_timer	= 90000;
 local first_wave 	= 20000;
+local wraith_fail_timer = 120000;
 
 local trial_mobs	= { 201452, 201455, 201475, 201476, 201477, 201478, 201479, 201480, 201481, 201482, 201483, 201484, 201485, 201486, 201487, 201488, 201489, 201490, 201491, 201492};
 
@@ -79,7 +80,9 @@ end
 
 function event_signal(e)
 	if (e.signal == 1) then
-		eq.get_entity_list():MessageClose(e.self, false, 120, MT.BrightBlue, "Success!");
+		eq.get_entity_list():MessageClose(e.self, false, 500, MT.BrightBlue, "Success!");
+		stop_event_timers();
+		eq.signal(201438, 1); -- NPC: The_Tribunal Torture Trial
 
 		despawn_mobs();
 		eq.depop();
@@ -201,8 +204,9 @@ function event_timer(e)
 
 	elseif (e.timer == "wraith_timer" or e.timer == "has_trial_started") then 
 		-- Event Failed
+		stop_event_timers();
 		eq.stop_timer(e.timer);
-		eq.get_entity_list():MessageClose(e.self, false, 120, MT.BrightBlue, "You have been found unworthy and have failed, you should be shamed and publicly flogged.");
+		eq.get_entity_list():MessageClose(e.self, false, 500, MT.BrightBlue, "You have been found unworthy and have failed, you should be shamed and publicly flogged.");
 
 		-- Tell the Tribunal we failed
 		eq.signal(201438, 2); -- NPC: The_Tribunal Torture Trial
@@ -233,7 +237,31 @@ function spawn_wraith()
 	else 
 		eq.spawn2(201452, 0, 0, 915, -1120, 58, 388); -- NPC: wraith_of_agony
 	end
-	eq.set_timer("wraith_timer", 60000);
+	local wraith = eq.get_entity_list():GetMobByNpcTypeID(201452);
+	if (wraith ~= nil and wraith.valid) then
+		eq.get_entity_list():MessageClose(wraith, false, 500, MT.BrightBlue, "A wraith of agony manifests within the torture chamber.");
+	end
+	eq.set_timer("wraith_timer", wraith_fail_timer);
+end
+
+function stop_event_timers()
+	local timers = {
+		"wave1",
+		"wave2",
+		"wave3",
+		"wave4",
+		"boss_timer",
+		"wraith_timer",
+		"has_trial_started",
+		"wave1_timer",
+		"wave2_timer",
+		"wave3_timer",
+		"wave4_timer",
+	};
+
+	for k,v in pairs(timers) do
+		eq.stop_timer(v);
+	end
 end
 
 function spawn_mobs(wave)

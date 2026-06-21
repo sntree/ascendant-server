@@ -1,21 +1,21 @@
 local counter = 0;
+local keeper_timer_started = false;
 
 function event_spawn(e)
 	counter = 0;
+	keeper_timer_started = false;
 end
 
 function event_signal(e)
-	local qglobals = eq.get_qglobals();
-
 	if(e.signal == 1) then -- azarack
 		counter = counter + 1;
 		if(counter == 10) then
 			eq.spawn2(71059,0,0,-602.2,-254.4,-333.5,403); -- NPC: Protector_of_Sky
 			counter = 0;
 		end
-	elseif(e.signal == 2 and qglobals["keeper"] == nil) then
+	elseif(e.signal == 2 and not keeper_timer_started) then
 		-- eq.set_timer("13",300000); what is this referred to?
-		eq.set_global("keeper","1",3,"H2");
+		keeper_timer_started = true;
 		-- supposed to be 60-85 minute timer
 --		eq.set_timer("87",math.random(1500000) + 3600000);
 		eq.set_timer("87", 300000 + math.random(300000))  -- 5:00 to 10:00

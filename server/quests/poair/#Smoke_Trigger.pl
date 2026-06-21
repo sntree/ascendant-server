@@ -1,3 +1,6 @@
+# Instance-scoped qglobal keys so concurrent poair instances run the ring event independently.
+sub _ring_key { return ($instanceid ? "${instanceid}_" : "") . $_[0]; }
+
 sub EVENT_SPAWN 
 {
 	$counter = 0;
@@ -5,7 +8,7 @@ sub EVENT_SPAWN
 
 sub EVENT_SIGNAL 
 {
-	if ($signal == 1 && defined($qglobals{smoke_event_start}) && !defined($qglobals{smoke_done})) 
+	if ($signal == 1 && defined($qglobals{_ring_key("smoke_event_start")}) && !defined($qglobals{_ring_key("smoke_done")})) 
 	{
 		$counter+=1;
 		
@@ -14,16 +17,16 @@ sub EVENT_SIGNAL
         		quest::spawn2(215454,0,0,-445.6,-1291.9,317.6,140.2); # NPC: An_Elemental_Masterpiece
         	}
      	}
-     	elsif ($signal == 2 && defined($qglobals{smoke_event_start}) && !defined($qglobals{smoke_done})) 
+     	elsif ($signal == 2 && defined($qglobals{_ring_key("smoke_event_start")}) && !defined($qglobals{_ring_key("smoke_done")})) 
      	{
      		quest::spawn2(215435,0,0,1395.9,-681.3,15.1,510.2); # NPC: #Avatar_of_Smoke
         	quest::depop_withtimer(215055);
      	}
-     	elsif ($signal == 3  && !defined($qglobals{smoke_done})) 
+     	elsif ($signal == 3  && !defined($qglobals{_ring_key("smoke_done")})) 
      	{
-        	quest::setglobal("smoke_done",1,3,"F");
+        	quest::setglobal(_ring_key("smoke_done"),1,3,"F");
      	}
-	elsif ($signal == 4 && !defined($qglobals{smoke_event_start}) && !defined($qglobals{smoke_done})) 
+	elsif ($signal == 4 && !defined($qglobals{_ring_key("smoke_event_start")}) && !defined($qglobals{_ring_key("smoke_done")})) 
 	{
 		#A_Confused_Air_Elemental
 		if(!$entity_list->IsMobSpawnedByNpcTypeID(215012)) 
@@ -32,12 +35,12 @@ sub EVENT_SIGNAL
 			quest::spawn2(215066,0,0,-501.9,-1205.9,318.6,198); # NPC: An_Elemental_Champion
 			quest::spawn2(215066,0,0,-341.1,-1245.2,317.6,365.6); # NPC: An_Elemental_Champion
 			quest::spawn2(215066,0,0,-523.3,-1288.2,321.7,126); # NPC: An_Elemental_Champion
-			quest::setglobal("smoke_event_start",1,3,"H2");
+			quest::setglobal(_ring_key("smoke_event_start"),1,3,"H2");
 			$counter=0;
 		}
 	}
 	elsif ($signal == 5)
 	{
-		quest::delglobal("smoke_done");
+		quest::delglobal(_ring_key("smoke_done"));
 	}
 }

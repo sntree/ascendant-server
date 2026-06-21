@@ -1,3 +1,6 @@
+# Instance-scoped qglobal key so concurrent poinnovation instances run the test event independently.
+sub _poi_key { return $instanceid ? "${instanceid}_poiend" : "poiend"; }
+
 sub EVENT_SAY {
   if ($text=~/hail/i) {
     quest::say("Interesting, your abilities have shown you to be sufficient. We would like to continue testing, are you ready to continue or would you like to quit here?");
@@ -10,7 +13,7 @@ sub EVENT_SAY {
     quest::depop();
   
   }
-  if ($text=~/continue/i && defined $qglobals{poiend}) {
+  if ($text=~/continue/i && defined $qglobals{_poi_key()}) {
     quest::say("Very well, I'll return when you are finished");
 quest::spawn2(206078,0,0,-266,-879,3,4); # NPC: a_manaetic_device
 quest::spawn2(206077,0,0,-314,-880,3,510); # NPC: a_manaetic_contraption
@@ -25,7 +28,7 @@ quest::spawn2(206077,0,0,-172,-785,3,386); # NPC: a_manaetic_contraption
 
 sub EVENT_SIGNAL {
   quest::settimer(1,240);
-  quest::delglobal("poiend");
+  quest::delglobal(_poi_key());
 
 }
 

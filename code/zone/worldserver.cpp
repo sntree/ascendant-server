@@ -633,6 +633,10 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet &p)
 
 			if (szic->zoneid == zone->GetZoneID()) {
 				auto client = entity_list.GetClientByLSID(szic->lsid);
+				if (!client) {
+					client = entity_list.GetClientByName(szic->charname);
+				}
+
 				if (client) {
 					client->Kick("Dropped by world CLE subsystem");
 					client->Save();

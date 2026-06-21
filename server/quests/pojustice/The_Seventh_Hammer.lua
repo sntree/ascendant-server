@@ -40,3 +40,14 @@ function event_signal(e)
 	 eq.set_timer("depop", 2700 * 1000);
    end
 end
+
+function event_killed_merit(e)
+	local account_id = e.other:AccountID()
+	local char_name = e.other:GetCleanName()
+	eq.set_data("pop_seventhhammer_" .. account_id, char_name)
+	local first_key = "first_kill_seventhhammer"
+	if eq.get_data(first_key) == "" and not e.other:GetGM() then
+		eq.set_data(first_key, char_name)
+		eq.world_emote(15, "SERVER FIRST! " .. char_name .. " and their group have slain The Seventh Hammer for the first time on this server!")
+	end
+end

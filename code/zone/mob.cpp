@@ -1291,10 +1291,31 @@ void Mob::FillSpawnStruct(NewSpawn_Struct* ns, Mob* ForWho)
 		strn0cpy(ns->spawn.lastName, lastname, sizeof(ns->spawn.lastName));
 	}
 
-	ns->spawn.heading     = FloatToEQ12(m_Position.w);
-	ns->spawn.x           = FloatToEQ19(m_Position.x); //((int32)x_pos)<<3;
-	ns->spawn.y           = FloatToEQ19(m_Position.y); //((int32)y_pos)<<3;
-	ns->spawn.z           = FloatToEQ19(m_Position.z); //((int32)z_pos)<<3;
+	// Guard against a non-finite (NaN/Inf) position reaching the spawn packet:
+	// FloatToEQ19(NaN) is undefined and yields garbage coordinates that crash the RoF2
+	// client during the bulk OP_ZoneSpawns actor-load. A NaN position also evades the
+	// distance-based bulk-spawn delay in EntityList::SendZoneSpawnsBulk (NaN > max is
+	// false), so it always rides the bulk packet -- prime suspect for the zone-in crash.
+	const float spawn_pos_x = std::isfinite(m_Position.x) ? m_Position.x : 0.0f;
+	const float spawn_pos_y = std::isfinite(m_Position.y) ? m_Position.y : 0.0f;
+	const float spawn_pos_z = std::isfinite(m_Position.z) ? m_Position.z : 0.0f;
+	const float spawn_pos_h = std::isfinite(m_Position.w) ? m_Position.w : 0.0f;
+	if (spawn_pos_x != m_Position.x || spawn_pos_y != m_Position.y ||
+	    spawn_pos_z != m_Position.z || spawn_pos_h != m_Position.w) {
+		LogError(
+			"[NonFinitePosition] Sanitized spawn position for [{}] id [{}] zone [{}] inst [{}] raw [{},{},{},{}]",
+			GetCleanName(),
+			GetID(),
+			zone ? zone->GetZoneID() : 0,
+			zone ? zone->GetInstanceID() : 0,
+			m_Position.x, m_Position.y, m_Position.z, m_Position.w
+		);
+	}
+
+	ns->spawn.heading     = FloatToEQ12(spawn_pos_h);
+	ns->spawn.x           = FloatToEQ19(spawn_pos_x); //((int32)x_pos)<<3;
+	ns->spawn.y           = FloatToEQ19(spawn_pos_y); //((int32)y_pos)<<3;
+	ns->spawn.z           = FloatToEQ19(spawn_pos_z); //((int32)z_pos)<<3;
 	ns->spawn.spawnId     = GetID();
 	ns->spawn.curHp       = static_cast<uint8>(GetHPRatio());
 	ns->spawn.max_hp      = 100; // this field needs a better name
